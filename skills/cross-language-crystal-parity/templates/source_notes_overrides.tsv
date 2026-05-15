@@ -1,0 +1,3 @@
+# source_api_id	notes
+# Example:
+# vendor/huh/accessor.go::func::NewPointerAccessor	idiomatic Crystal match via Huh.cell + PointerAccessor (ref renamed to cell)

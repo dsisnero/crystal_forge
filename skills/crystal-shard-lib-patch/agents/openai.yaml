@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crystal Shard Patch Reporter"
+  short_description: "Patch ./lib shards and file upstream bugs with repro + fix"
+  default_prompt: "Use this when working in Crystal and changing code under ./lib to patch a shard and report upstream with failing specs and patch details."

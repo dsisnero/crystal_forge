@@ -1,0 +1,23 @@
+{
+  "skill_name": "crystal-performance",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have this Crystal code that processes a large CSV file and it's running slowly. Can you help optimize it?\n\n```crystal\nrequire \"csv\"\n\nlines_with_keywords = 0\nFile.each_line(\"large_file.csv\") do |line|\n  if [\"error\", \"warning\", \"critical\"].any? { |word| line.includes?(word) }\n    lines_with_keywords += 1\n  end\nend\nputs \"Lines with keywords: #{lines_with_keywords}\"\n```\n\nThe file has about 1 million lines and this takes too long. What performance improvements can I make?",
+      "expected_output": "Optimized Crystal code that avoids creating temporary arrays in the loop, uses more efficient string searching, and follows Crystal performance best practices.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I'm writing a Crystal program that needs to process user data and generate reports. Here's my current implementation:\n\n```crystal\nclass User\n  getter name, age, score\n  \n  def initialize(@name : String, @age : Int32, @score : Int32)\n  end\n  \n  def to_s\n    \"#{@name} (#{@age}): #{@score}\"\n  end\nend\n\nusers = [] of User\n100000.times do |i|\n  users << User.new(\"User#{i}\", rand(18..65), rand(0..100))\nend\n\n# Generate report\nreport = \"\"\nusers.each do |user|\n  report += user.to_s + \"\\n\"\nend\nFile.write(\"report.txt\", report)\n```\n\nThis uses too much memory when processing 100,000 users. How can I optimize it?",
+      "expected_output": "Optimized code that uses structs instead of classes, avoids string concatenation in loops, writes directly to file instead of building intermediate string, and follows Crystal performance patterns.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need to iterate through a string character by character and count specific characters. My current code:\n\n```crystal\ntext = File.read(\"large_text.txt\")\ncount = 0\ni = 0\nwhile i < text.size\n  if text[i] == 'x'\n    count += 1\n  end\n  i += 1\nend\nputs \"Found #{count} 'x' characters\"\n```\n\nThis works but seems slow for large files. What's the most efficient way to do this in Crystal?",
+      "expected_output": "Optimized code that uses proper string iteration methods (each_char, each_byte, or Char::Reader) instead of indexing, with explanation of why it's faster.",
+      "files": []
+    }
+  ]
+}

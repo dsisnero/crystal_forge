@@ -1,0 +1,11 @@
+# Local agent/tool settings
+.claude/
+
+# Local Crystal cache
+.crystal-cache/
+
+# Temporary working artifacts
+temp/
+
+# Dependency directories (exclude only when not used as committed source-of-truth)
+# vendor/

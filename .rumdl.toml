@@ -1,0 +1,31 @@
+[global]
+exclude = [
+    "vendor/**",
+    "lib/**",
+    "temp/**",
+    ".git/**",
+    "README.md",
+    "crystal-performance-workspace/**",
+]
+respect_gitignore = true
+flavor = "standard"
+
+[MD013]
+line-length = 120
+code-blocks = false
+tables = false
+headings = false
+
+[MD033]
+allowed-elements = []
+
+[MD041]
+fix = false
+
+[MD051]
+anchor-style = "github"
+ignore-case = true
+
+[MD074]
+absolute-links = "ignore"
+not-found = "warn"
