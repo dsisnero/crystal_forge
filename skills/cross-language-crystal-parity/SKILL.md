@@ -165,6 +165,25 @@ Status policy:
 - `intentional_divergence`: upstream item is deliberately replaced by a Crystal-native
   subsystem or cannot map 1:1; notes must name the replacement or blocker.
 
+Manifest status policy:
+
+- Do not assume every repo uses the same source/test status vocabulary forever.
+- Inspect the current manifest headers, templates, and existing rows before bulk edits.
+- In mature parity repos, `source_parity` and `test_parity` rows are often curated into
+  evidence ledgers using statuses such as `done`, `partial`, `missing`, and
+  `not_applicable` instead of staying as untouched generator output.
+- When a repo has already converged on a stricter vocabulary, preserve that local policy
+  instead of forcing the skill's older defaults back onto the manifests.
+
+Feature-scope policy:
+
+- Treat upstream features as parity targets when they exist in the source project.
+- If Rust exposes a feature surface such as Unicode tables, parser options, or HIR APIs,
+  the Crystal port should aim to expose it too.
+- Only mark rows `not_applicable` for upstream branches that depend on compile-time
+  feature absence or language/runtime-specific behavior that Crystal cannot expose in the
+  same form.
+
 Ledger policy:
 
 - Treat `<language>_port_inventory.tsv` as the working ledger.
@@ -192,7 +211,7 @@ Treat these files differently:
 
 - Curated working ledger:
   - `plans/inventory/<language>_port_inventory.tsv`
-- Generated/refresh manifests:
+- Source/test manifests that may start generated but often become curated evidence:
   - `plans/inventory/<language>_source_parity.tsv`
   - `plans/inventory/<language>_test_parity.tsv`
 - Curated deterministic source-note overrides:
@@ -203,6 +222,10 @@ Day-to-day policy:
 - Update progress/mapping notes primarily in `<language>_port_inventory.tsv`.
 - Run `check_*` scripts continuously.
 - Regenerate source/test manifests only for intentional refresh from upstream drift.
+- If source/test manifests have already been reconciled by hand, treat them as canonical
+  evidence files and edit them carefully instead of blindly regenerating over them.
+- After substantial parity work, reconcile all three inventories together so they stop
+  reporting stale `missing` rows when the implementation or tests already exist.
 
 Implementation parity reminder:
 
@@ -233,11 +256,15 @@ What each checker validates:
 - `check_source_parity.sh`
   - discovered source API IDs match `<language>_source_parity.tsv`
   - no stale/missing source API IDs
-  - source status vocabulary is valid (`mapped|partial|missing`)
+  - source status vocabulary is valid for the target repo's current manifest policy
 - `check_test_parity.sh`
   - discovered source test IDs match `<language>_test_parity.tsv`
   - no stale/missing test IDs
-  - test status vocabulary is valid
+  - test status vocabulary is valid for the target repo's current manifest policy
+
+Practical rule: do not hard-code a single universal manifest vocabulary in your head.
+Read the existing manifest rows, script expectations, and templates in the target repo
+before large-scale status rewrites.
 
 ## Queryable Inventory Facts
 
@@ -290,6 +317,30 @@ Adversarial parity verification passed for language=rust.
 
 Recommended process: run this in a separate review pass (or CI job) from the
 implementation pass.
+
+Signoff policy:
+
+- Aim to drive every inventory row out of stale `missing` status.
+- Final states should be implemented evidence (`ported`/`done`/`partial`), explicit
+  `not_applicable`, or documented intentional divergence.
+- If a row stays open, explain why in the manifest notes instead of leaving baseline
+  placeholders behind.
+
+## Parity Review Heuristics
+
+Use these rules during implementation, not only during inventory cleanup:
+
+- Work in broad feature buckets when possible: parser, translator, Unicode tables, HIR
+  analysis, printers, visitors, and error surface. Avoid stopping at one tiny test if the
+  surrounding feature slice is still obviously incomplete.
+- Match upstream internal shape when behavior depends on it. Do not collapse data
+  structures or state machines just because a simplified implementation passes a small
+  sample.
+- Use vendored upstream code and tests as the contract. Do not invent new semantics when
+  the source project is more specific.
+- When upstream has compile-time-disabled test branches, record those as `not_applicable`
+  only if the Crystal port intentionally ships the corresponding feature surface as always
+  enabled. Do not use `not_applicable` as a shortcut for unfinished real features.
 
 ## Usage Examples
 
