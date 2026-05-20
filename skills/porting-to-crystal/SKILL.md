@@ -1,13 +1,7 @@
 ---
 description: Execute behavior-faithful ports from Go, Rust, or similar languages into Crystal by translating APIs and tests while preserving upstream semantics and outputs. Use when implementing or continuing a source-based port where upstream behavior is the required contract.
-metadata:
-    github-path: skills/porting-to-crystal
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: ad466ab710ec0f8d71fd29d280650ea4fd9139d0
 name: porting-to-crystal
 ---
-
 # Porting to Crystal
 
 ## Purpose

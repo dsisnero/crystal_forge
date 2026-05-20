@@ -1,13 +1,7 @@
 ---
 description: Set up or retrofit a repository with Crystal Forge meta-structure by creating CLAUDE.md/AGENTS.md, core docs, and baseline project conventions. Use when a project lacks agent-facing guidance or needs standardized engineering documentation and command gates.
-metadata:
-    github-path: skills/crystal-forge-setup-project
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: f6176ba7a7fc8f314405f6d9e752fb2de11b9583
 name: crystal-forge-setup-project
 ---
-
 # Crystal Forge Project Setup
 
 ## Goal

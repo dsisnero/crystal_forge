@@ -1,13 +1,7 @@
 ---
 description: Verify Crystal Bubble Tea output against golden files using Crystal teatest/golden libraries.
-metadata:
-    github-path: skills/bubbletea-crystal-teatest-golden
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 8bcaf2fa85b796de43804a9a0e24eb5b1893c29d
 name: bubbletea-crystal-teatest-golden
 ---
-
 # Crystal Teatest Golden
 
 Use this when Crystal specs assert output with `lib/teatest` + `lib/golden`.

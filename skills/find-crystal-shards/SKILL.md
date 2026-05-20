@@ -1,13 +1,7 @@
 ---
 description: Evaluate and select Crystal shard dependencies for a project by searching candidate libraries, comparing maintenance and fit, and applying the chosen dependency to shard.yml. Use when a port or feature needs a Crystal library replacement and dependency choice affects behavior, risk, or maintainability.
-metadata:
-    github-path: skills/find-crystal-shards
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 4a6e3ae68e48cc06a46853d45c936cb24f84f93e
 name: find-crystal-shards
 ---
-
 # Find Crystal Shards
 
 ## Goal

@@ -1,13 +1,7 @@
 ---
 description: Orchestrate Bubble Tea Go-vs-Crystal parity work by routing to teatest/golden generation, Crystal verification, and fallback byte diagnostics. Use when parity work spans multiple steps or requires choosing the correct parity path and subskill handoffs.
-metadata:
-    github-path: skills/bubbletea-parity-workflow
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 9f4ed1984cf90141de74af99e8fbe3c0d0c0d703
 name: bubbletea-parity-workflow
 ---
-
 # Bubble Tea Parity Workflow
 
 ## Goal

@@ -1,13 +1,7 @@
 ---
 description: Use this skill in Crystal projects whenever code under ./lib (installed shards) is modified to preserve Go parity or fix shard behavior. Forks upstream repo to ./temp, implements TDD fix, pushes to fork, asks user to review before creating PR. Creates or updates upstream shard issues with reproducible failures, failing specs, environment details, and the local patch that fixes it.
-metadata:
-    github-path: skills/crystal-shard-lib-patch
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 26631dcb22193bd2f77bd1d826569f1a32045890
 name: crystal-shard-lib-patch
 ---
-
 # Crystal Shard Lib Patch
 
 ## Overview

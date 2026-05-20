@@ -1,13 +1,7 @@
 ---
 description: Optimize Crystal code for performance by identifying hot code paths first, validating benchmark or profiling infrastructure, comparing against a clean baseline, and keeping only changes that improve verified metrics. Use this skill when users ask about Crystal performance optimization, slow Crystal code, memory usage, hot paths, benchmark-driven cleanup, or allocation-focused tuning in Crystal projects.
-metadata:
-    github-path: skills/crystal-performance
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 6a1752a98ff2334167e0f88781a3ccabe586d720
 name: crystal-performance
 ---
-
 # Crystal Performance Optimization Skill
 
 Use this skill to do measured Crystal performance work, not speculative cleanup.

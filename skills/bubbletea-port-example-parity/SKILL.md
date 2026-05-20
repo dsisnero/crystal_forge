@@ -1,13 +1,7 @@
 ---
 description: Implement example-level Go-to-Crystal Bubble Tea parity by matching model/update/view behavior and deterministic harness inputs. Use when parity drift is owned by example logic rather than runtime/shard internals.
-metadata:
-    github-path: skills/bubbletea-port-example-parity
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: f4307615b8dfdad7b962af676d6d93e9d8e8577b
 name: bubbletea-port-example-parity
 ---
-
 # Bubble Tea Example Port Parity
 
 ## Goal

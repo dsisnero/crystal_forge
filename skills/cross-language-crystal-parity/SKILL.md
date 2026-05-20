@@ -1,13 +1,7 @@
 ---
 description: Track source-to-Crystal parity by generating inventories of source API and tests, validating drift, and turning the work into a curated parity.md feature plan with checkbox progress. Use for Go, Rust, Crystal, Java, Ruby, or TypeScript/JavaScript upstreams when you need reproducible parity manifests instead of ad-hoc tracking, especially when tree-sitter discovery or Prolog fact queries would make the inventory more reliable.
-metadata:
-    github-path: skills/cross-language-crystal-parity
-    github-ref: refs/tags/v1.0.0
-    github-repo: https://github.com/dsisnero/crystal_forge
-    github-tree-sha: 7fc2fc31b611e62a45dbd6dbbc13dbb7dc5afeb4
 name: cross-language-crystal-parity
 ---
-
 # Cross-Language Crystal Parity
 
 ## Goal
