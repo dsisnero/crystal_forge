@@ -1,6 +1,11 @@
 ---
+description: Track source-to-Crystal parity by generating inventories of source API and tests, validating drift, and turning the work into a curated parity.md feature plan with checkbox progress. Use for Go, Rust, Crystal, Java, Ruby, or TypeScript/JavaScript upstreams when you need reproducible parity manifests instead of ad-hoc tracking, especially when tree-sitter discovery or Prolog fact queries would make the inventory more reliable.
+metadata:
+    github-path: skills/cross-language-crystal-parity
+    github-ref: refs/tags/v1.0.0
+    github-repo: https://github.com/dsisnero/crystal_forge
+    github-tree-sha: 7fc2fc31b611e62a45dbd6dbbc13dbb7dc5afeb4
 name: cross-language-crystal-parity
-description: Track source-to-Crystal parity by generating inventories of source API and tests, validating drift, and seeding backlog work from missing coverage. Use for Go, Rust, Crystal, Java, Ruby, or TypeScript/JavaScript upstreams when you need reproducible parity manifests instead of ad-hoc tracking, especially when tree-sitter discovery or Prolog fact queries would make the inventory more reliable.
 ---
 
 # Cross-Language Crystal Parity
@@ -47,6 +52,7 @@ If only the Ruby gem is available (or neither), results carry a "regex fallback 
 
 ## Generic Artifacts
 
+- `parity.md`
 - `plans/inventory/<language>_port_inventory.tsv`
 - `plans/inventory/<language>_source_parity.tsv`
 - `plans/inventory/<language>_test_parity.tsv`
@@ -117,6 +123,9 @@ Fallback mode is allowed only when bootstrap is not possible. In fallback mode:
 ./scripts/ensure_parity_plan.sh . vendor/upstream_repo rust auto 0
 ```
 
+Then create or refresh a curated repo-root `parity.md` that turns the raw
+inventory into major implementation features.
+
 Arguments:
 
 1. `ROOT_DIR`
@@ -140,7 +149,50 @@ Manifests:
   - ./plans/inventory/rust_test_parity.tsv
 ```
 
+Required `parity.md` policy:
+
+- `parity.md` is a curated plan, not a generated dump.
+- Use Markdown checkboxes: `[ ]` for incomplete major features, `[x]` for
+  completed major features.
+- Each top-level checkbox item must represent a major git feature that can be
+  implemented and reviewed as a coherent branch/PR-sized slice.
+- Each feature must be workable via red-green TDD:
+  - start from missing or failing upstream-parity specs
+  - implement until the new slice passes
+  - update inventory rows and mark the feature `[x]` only after parity is
+    demonstrated
+- Do not create checklist items for individual methods, constants, or one-off
+  inventory rows unless that row itself is genuinely a branch-sized feature.
+- Use the inventory to decide scope; use `parity.md` to decide sequencing.
+
+Recommended `parity.md` shape:
+
+```md
+# Parity Plan
+
+## Current Focus
+
+- [ ] Feature name
+  - Upstream scope: modules/tests/groups this feature covers
+  - Inventory ids: representative ids or ranges from `plans/inventory/...`
+  - Red: failing or missing parity specs to port first
+  - Green: implementation/files expected to change
+  - Done when: inventory rows are `ported` or documented as intentional divergence, and parity checks pass
+
+## Completed
+
+- [x] Feature already finished
+```
+
 ### 2) Work the plan
+
+Drive implementation from both artifacts together:
+
+- `parity.md` answers: what major feature is next, what branch-sized slice is
+  in flight, and what is already complete.
+- `<language>_port_inventory.tsv` answers: which concrete upstream APIs/tests
+  belong to that feature, what their exact status is, and where Crystal refs
+  live.
 
 Update statuses in `<language>_port_inventory.tsv` as parity work progresses:
 
@@ -165,32 +217,28 @@ Status policy:
 - `intentional_divergence`: upstream item is deliberately replaced by a Crystal-native
   subsystem or cannot map 1:1; notes must name the replacement or blocker.
 
-Manifest status policy:
-
-- Do not assume every repo uses the same source/test status vocabulary forever.
-- Inspect the current manifest headers, templates, and existing rows before bulk edits.
-- In mature parity repos, `source_parity` and `test_parity` rows are often curated into
-  evidence ledgers using statuses such as `done`, `partial`, `missing`, and
-  `not_applicable` instead of staying as untouched generator output.
-- When a repo has already converged on a stricter vocabulary, preserve that local policy
-  instead of forcing the skill's older defaults back onto the manifests.
-
-Feature-scope policy:
-
-- Treat upstream features as parity targets when they exist in the source project.
-- If Rust exposes a feature surface such as Unicode tables, parser options, or HIR APIs,
-  the Crystal port should aim to expose it too.
-- Only mark rows `not_applicable` for upstream branches that depend on compile-time
-  feature absence or language/runtime-specific behavior that Crystal cannot expose in the
-  same form.
-
 Ledger policy:
 
+- Treat `parity.md` as the curated feature roadmap.
 - Treat `<language>_port_inventory.tsv` as the working ledger.
 - After onboarding, avoid re-running `generate_port_inventory.sh` on top of a
   curated ledger; use `check_port_inventory.sh` + manual status updates.
 - `ensure_parity_plan.sh` is safe for active projects because it only creates
   missing manifests (it does not overwrite existing port inventory).
+
+Feature slicing policy:
+
+- A `parity.md` item should usually group multiple related source/test rows into
+  one user-meaningful capability.
+- Good slices are things like "UTF-8 PikeVM search path", "dense DFA
+  serialization", or "regex syntax parser error reporting", not isolated helper
+  methods.
+- A feature is eligible for `[x]` only when its mapped inventory rows are
+  either `ported`, `skipped` with rationale, or `intentional_divergence` with
+  rationale, and the associated parity specs are green.
+- If a feature is too large for one red-green cycle, split it into multiple
+  major subfeatures in `parity.md`, each still large enough to stand as a real
+  git feature.
 
 For deterministic exception notes, keep overrides in
 `plans/inventory/<language>_source_notes.tsv` (`source_api_id<TAB>notes`) so
@@ -209,9 +257,11 @@ Naming-change policy:
 
 Treat these files differently:
 
+- Curated feature plan:
+  - `parity.md`
 - Curated working ledger:
   - `plans/inventory/<language>_port_inventory.tsv`
-- Source/test manifests that may start generated but often become curated evidence:
+- Generated/refresh manifests:
   - `plans/inventory/<language>_source_parity.tsv`
   - `plans/inventory/<language>_test_parity.tsv`
 - Curated deterministic source-note overrides:
@@ -219,13 +269,14 @@ Treat these files differently:
 
 Day-to-day policy:
 
+- Update `parity.md` only when feature-level sequencing or completion changes.
 - Update progress/mapping notes primarily in `<language>_port_inventory.tsv`.
+- When starting work, move one `parity.md` feature into active focus and port
+  the failing specs for that slice first.
+- When finishing work, update the affected inventory rows before marking the
+  feature `[x]` in `parity.md`.
 - Run `check_*` scripts continuously.
 - Regenerate source/test manifests only for intentional refresh from upstream drift.
-- If source/test manifests have already been reconciled by hand, treat them as canonical
-  evidence files and edit them carefully instead of blindly regenerating over them.
-- After substantial parity work, reconcile all three inventories together so they stop
-  reporting stale `missing` rows when the implementation or tests already exist.
 
 Implementation parity reminder:
 
@@ -256,15 +307,11 @@ What each checker validates:
 - `check_source_parity.sh`
   - discovered source API IDs match `<language>_source_parity.tsv`
   - no stale/missing source API IDs
-  - source status vocabulary is valid for the target repo's current manifest policy
+  - source status vocabulary is valid (`mapped|partial|missing`)
 - `check_test_parity.sh`
   - discovered source test IDs match `<language>_test_parity.tsv`
   - no stale/missing test IDs
-  - test status vocabulary is valid for the target repo's current manifest policy
-
-Practical rule: do not hard-code a single universal manifest vocabulary in your head.
-Read the existing manifest rows, script expectations, and templates in the target repo
-before large-scale status rewrites.
+  - test status vocabulary is valid
 
 ## Queryable Inventory Facts
 
@@ -317,30 +364,6 @@ Adversarial parity verification passed for language=rust.
 
 Recommended process: run this in a separate review pass (or CI job) from the
 implementation pass.
-
-Signoff policy:
-
-- Aim to drive every inventory row out of stale `missing` status.
-- Final states should be implemented evidence (`ported`/`done`/`partial`), explicit
-  `not_applicable`, or documented intentional divergence.
-- If a row stays open, explain why in the manifest notes instead of leaving baseline
-  placeholders behind.
-
-## Parity Review Heuristics
-
-Use these rules during implementation, not only during inventory cleanup:
-
-- Work in broad feature buckets when possible: parser, translator, Unicode tables, HIR
-  analysis, printers, visitors, and error surface. Avoid stopping at one tiny test if the
-  surrounding feature slice is still obviously incomplete.
-- Match upstream internal shape when behavior depends on it. Do not collapse data
-  structures or state machines just because a simplified implementation passes a small
-  sample.
-- Use vendored upstream code and tests as the contract. Do not invent new semantics when
-  the source project is more specific.
-- When upstream has compile-time-disabled test branches, record those as `not_applicable`
-  only if the Crystal port intentionally ships the corresponding feature surface as always
-  enabled. Do not use `not_applicable` as a shortcut for unfinished real features.
 
 ## Usage Examples
 

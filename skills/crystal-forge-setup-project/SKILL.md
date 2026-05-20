@@ -1,6 +1,11 @@
 ---
-name: crystal-forge-setup-project
 description: Set up or retrofit a repository with Crystal Forge meta-structure by creating CLAUDE.md/AGENTS.md, core docs, and baseline project conventions. Use when a project lacks agent-facing guidance or needs standardized engineering documentation and command gates.
+metadata:
+    github-path: skills/crystal-forge-setup-project
+    github-ref: refs/tags/v1.0.0
+    github-repo: https://github.com/dsisnero/crystal_forge
+    github-tree-sha: f6176ba7a7fc8f314405f6d9e752fb2de11b9583
+name: crystal-forge-setup-project
 ---
 
 # Crystal Forge Project Setup
@@ -56,7 +61,6 @@ Include these sections:
    - `docs/coding-guidelines.md`
    - `docs/testing.md`
    - `docs/pr-workflow.md`
-   - `CHANGELOG.md`
 4. Core principles.
 5. Commit message convention.
 6. Project conventions (only if concrete and non-generic).
@@ -88,20 +92,6 @@ Create missing files under `docs/` with concise, actionable starter content:
 - `pr-workflow.md`
 
 Do not create extra meta documentation files.
-
-### 5b) Ensure CHANGELOG.md exists
-
-If missing, create `CHANGELOG.md` with an initial entry:
-
-```markdown
-# Changelog
-
-## [0.1.0] - YYYY-MM-DD
-
-- Initial release
-```
-
-Use the current date and the version from `shard.yml`.
 
 ### 6) Ensure `.gitignore` baseline
 
@@ -145,17 +135,6 @@ baseline entries:
 - `.rumdl.toml` baseline from:
   - `/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/templates.rumdl.toml`
 
-### 6d) Ensure ameba development dependency
-
-For Crystal projects, add `ameba` as a development dependency in `shard.yml`:
-
-```yaml
-development_dependencies:
-  ameba:
-    github: crystal-ameba/ameba
-    version: ~> 1.7.0
-```
-
 ### 7) Validate consistency
 
 Verify:
@@ -170,13 +149,11 @@ Verify:
 1. `CLAUDE.md` exists with verified commands and principles.
 2. `AGENTS.md` symlinks to `CLAUDE.md`.
 3. Core docs exist under `docs/`.
-4. `CHANGELOG.md` exists with an initial release entry.
-5. `.gitignore` contains required local-only paths including `temp/`.
-6. `Makefile` includes a `clean` target that runs `rm -rf ./temp/*`.
-7. Crystal projects include `.ameba.yml` and `.rumdl.toml` baseline config.
-8. `temp/` is excluded from ameba, rumdl, and format checks.
-9. Crystal projects have `ameba` listed in `shard.yml` under `development_dependencies`.
-10. Content is concise, non-duplicative, and repository-specific.
+4. `.gitignore` contains required local-only paths including `temp/`.
+5. `Makefile` includes a `clean` target that runs `rm -rf ./temp/*`.
+6. Crystal projects include `.ameba.yml` and `.rumdl.toml` baseline config.
+7. `temp/` is excluded from ameba, rumdl, and format checks.
+8. Content is concise, non-duplicative, and repository-specific.
 
 ## Related Skills
 

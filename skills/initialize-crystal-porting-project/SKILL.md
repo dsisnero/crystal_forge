@@ -1,6 +1,11 @@
 ---
-name: initialize-crystal-porting-project
 description: Initialize a Crystal project for language-porting work by creating baseline project structure, adding upstream as a git submodule, wiring quality gates, and documenting source-of-truth constraints. Use when starting a new Crystal port or retrofitting an existing Crystal repo for structured upstream parity work.
+metadata:
+    github-path: skills/initialize-crystal-porting-project
+    github-ref: refs/tags/v1.0.0
+    github-repo: https://github.com/dsisnero/crystal_forge
+    github-tree-sha: d1f43ed21c5812a6f005378a503b32484062faaa
+name: initialize-crystal-porting-project
 ---
 
 # Initialize Crystal Porting Project

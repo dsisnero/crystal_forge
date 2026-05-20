@@ -2,13 +2,18 @@
 
 ## Ledger Invariants
 
-1. `plans/inventory/<language>_port_inventory.tsv` is the working ledger.
-2. Do not overwrite curated ledger/manifests during normal progress tracking.
-3. Status transitions reflect reality:
+1. `parity.md` is the curated feature plan for major parity slices.
+2. `parity.md` uses `[ ]` and `[x]` checkboxes only for major git-feature-sized
+   work items that can be completed through red-green TDD.
+3. `plans/inventory/<language>_port_inventory.tsv` is the working ledger.
+4. Do not overwrite curated ledger/manifests during normal progress tracking.
+5. Status transitions reflect reality:
 
 - `missing` -> `in_progress` -> `partial` -> `ported` (or `skipped` with rationale)
 
-4. `partial` and `ported` rows must include concrete `crystal_refs`.
+6. `partial` and `ported` rows must include concrete `crystal_refs`.
+7. Mark a `parity.md` feature `[x]` only after its corresponding inventory rows
+   and parity specs show the slice is actually complete.
 
 ## Manifest Format Invariants
 

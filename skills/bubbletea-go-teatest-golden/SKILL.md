@@ -1,6 +1,11 @@
 ---
-name: bubbletea-go-teatest-golden
 description: Generate/update golden outputs from Go Bubble Tea tests using Charm teatest/golden libraries.
+metadata:
+    github-path: skills/bubbletea-go-teatest-golden
+    github-ref: refs/tags/v1.0.0
+    github-repo: https://github.com/dsisnero/crystal_forge
+    github-tree-sha: 6416ec6ddbb945df9ffc4ad7226fca4dedfc96c7
+name: bubbletea-go-teatest-golden
 ---
 
 # Go Teatest Golden
