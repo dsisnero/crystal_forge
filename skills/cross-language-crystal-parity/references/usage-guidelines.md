@@ -61,10 +61,10 @@ Examples:
 ./scripts/ensure_parity_plan.sh . vendor/upstream rust auto 0
 ```
 
-2. Create or refresh repo-root `parity.md` as a curated feature plan.
+2. Create or refresh `plans/parity.md` as a curated feature plan.
    Use only major checkbox items (`[ ]` / `[x]`) that map to branch-sized,
    red-green-TDD-capable parity features.
-3. Pick one unchecked feature from `parity.md`, port the failing/missing specs
+3. Pick one unchecked feature from `plans/parity.md`, port the failing/missing specs
    for that feature first, then implement against that slice.
 4. Update ledger statuses manually in
    `plans/inventory/rust_port_inventory.tsv` as the source of truth for exact
@@ -77,7 +77,7 @@ Examples:
 ./scripts/check_test_parity.sh . plans/inventory/rust_test_parity.tsv vendor/upstream rust
 ```
 
-6. Mark the feature `[x]` in `parity.md` only after its inventory rows are
+6. Mark the feature `[x]` in `plans/parity.md` only after its inventory rows are
    covered and the parity slice is green.
 7. Run adversarial signoff before merge:
 

@@ -1,74 +1,46 @@
 ---
-description: Initialize a Crystal project for language-porting work by creating baseline project structure, adding upstream as a git submodule, wiring quality gates, and documenting source-of-truth constraints. Use when starting a new Crystal port or retrofitting an existing Crystal repo for structured upstream parity work.
 name: initialize-crystal-porting-project
+description: Initialize a Crystal porting repo with upstream source checkout, baseline gates, and source-of-truth documentation. Use when starting a new port or retrofitting an existing Crystal repo for structured parity work.
 ---
+
 # Initialize Crystal Porting Project
 
-## Goal
+Use this skill to create the project baseline before real porting starts.
 
-Create a clean project baseline so later implementation can be done with
-`porting-to-crystal` and `cross-language-crystal-parity` (for source parity inventory
-across Go, Rust, Crystal, Java, and Ruby).
+## Inputs
 
-## Inputs to Collect
+Collect the minimum missing facts:
 
-Collect these values before making edits:
+1. upstream repository URL
+2. optional upstream subdirectory
+3. port name if it should differ from the repo name
+4. submodule path if it should differ from `vendor/<port-name>`
+5. whether to track `main` or pin a tag/commit
 
-1. Upstream repository URL.
-2. Optional upstream subdirectory (for example `x/ansi`).
-3. Port name (default: upstream repo name).
-4. Submodule path (default: `vendor/<port-name>`).
-5. Upstream ref policy: track `main` or pin a specific tag/commit.
+If no upstream checkout exists, explicitly ask whether the source should be
+added as a git submodule and where the source-of-truth lives.
 
-If no submodule exists yet, ask these required questions explicitly:
+## Workflow
 
-1. "Do you want to add upstream as a git submodule?"
-2. "Where is the source code to port?"
-   1. project root
-   2. subdirectory in this repo (provide path)
-   3. other path (provide explicit path)
+### 1. Add upstream checkout
 
-Explain briefly when asked:
-
-- a git submodule is a pinned external repository checkout embedded in this
-  repo, used for reproducible upstream parity.
-
-## Setup Workflow
-
-### 1) Add upstream as submodule
-
-Default flow:
+Prefer a git submodule:
 
 ```bash
 git submodule add -b main <source_url> vendor/<port-name>
 ```
 
-If pinning immediately:
+Pin a tag or commit immediately if that is the agreed policy.
 
-```bash
-git -C vendor/<port-name> fetch --tags
-git -C vendor/<port-name> checkout <tag-or-commit>
-```
+### 2. Ensure Crystal baseline tooling
 
-### 2) Ensure Crystal quality dependencies
+- `shard.yml` should include `ameba` as a development dependency.
+- Add runtime dependencies only when parity work actually needs them.
+- Reuse the shared `.ameba.yml` baseline from `crystal-forge-setup-project`.
 
-Ensure `shard.yml` includes ameba as a development dependency:
+### 3. Ensure standard repo commands
 
-```yaml
-development_dependencies:
-  ameba:
-    github: crystal-ameba/ameba
-    version: ~> 1.0
-```
-
-Add runtime dependencies only when required for parity with upstream behavior.
-
-Ensure `.ameba.yml` baseline includes at least the shared template entries from:
-`/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/templates.ameba.yml`
-
-### 3) Ensure baseline automation commands
-
-Project should expose these commands (via `Makefile` or equivalent):
+Expose at least:
 
 - `install`
 - `update`
@@ -77,79 +49,46 @@ Project should expose these commands (via `Makefile` or equivalent):
 - `test`
 - `clean`
 
-Preferred Crystal gates:
+For Crystal repos, prefer `format`, `ameba`, and `crystal spec` gates.
+
+### 4. Add docs baseline
+
+Create or update:
+
+- `README.md` with clear upstream attribution and pinned source revision
+- `AGENTS.md` with source-of-truth and contributor workflow
+- missing docs under `docs/`
+
+Do not replace useful local content wholesale; merge with it.
+
+### 5. Bootstrap the parity plan
 
 ```bash
-crystal tool format --check src spec
-ameba src spec
-crystal spec
+./scripts/ensure_parity_plan.sh . <source_path> <language> auto 0
 ```
 
-### 4) Add docs baseline
+This should establish `plans/inventory/*` from day one.
 
-Create/update:
+### 6. Verify setup
 
-- `README.md`: merge local README content with relevant upstream submodule
-  README content (do not replace wholesale).
-  Required README markers:
-  - explicit statement: `This repository is a Crystal port of <upstream-url>`.
-  - pinned upstream ref (tag/commit) used for current parity work.
-  - section heading: `## Upstream README Highlights` summarizing key upstream
-    workflow/usage context copied from the submodule README.
-- `AGENTS.md`: define source-of-truth policy and contributor workflow.
-- `docs/`: add architecture/development/testing/coding/pr-workflow stubs if
-  missing.
-
-### 5) Handoff to implementation skills
-
-After initialization:
-
-- Use `porting-to-crystal` for translation and parity execution.
-- Use `cross-language-crystal-parity` when inventory/drift tracking is needed for Go,
-  Rust, Crystal, Java, or Ruby upstreams.
-- Use `find-crystal-shards` only when dependency replacement decisions are
-  required.
-
-### 6) Bootstrap parity inventory plan
-
-Before implementation begins, create/validate inventory manifests:
+Run:
 
 ```bash
-./bin/ensure_parity_plan.sh . <source_path> <language> auto 0
+./scripts/verify_initialized_project_baseline.sh <project_root>
 ```
 
-This establishes `plans/inventory/*` as the project parity ledger from day one.
+## Completion
 
-### 7) Verify baseline outputs deterministically
+Initialization is complete when:
 
-Run baseline verifier after setup and before first major parity pass:
+1. upstream checkout exists at the agreed ref
+2. baseline quality gates are present
+3. README and AGENTS document the source of truth
+4. `plans/inventory/*` exists
+5. the baseline verifier passes
 
-```bash
-/Users/dominic/.agents/skills/crystal_forge/skills/initialize-crystal-porting-project/scripts/verify_initialized_project_baseline.sh <project_root>
-```
+## Route next
 
-This checks expected initialization elements in:
-
-- `Makefile` targets (`install`, `update`, `format`, `lint`, `test`, `clean`)
-- `.ameba.yml`
-- `.rumdl.toml` (or `.rumdl`)
-- `docs/` baseline files
-- `.gitignore` sanity (`.crystal-cache/` ignored, `docs/` not ignored)
-- `README.md` port/source attribution and upstream-README merge markers
-
-## Completion Checklist
-
-1. Submodule exists at agreed path and resolves to intended ref.
-2. `shard.yml` has required dev dependencies.
-3. Quality gate commands are present and runnable.
-4. README/AGENTS/docs exist and describe upstream source-of-truth constraints.
-5. Inventory plan is bootstrapped under `plans/inventory/`.
-6. Baseline verifier passes for setup artifacts.
-7. Next skill handoff is explicit in notes/PR.
-
-## Related Skills
-
-- [porting-to-crystal](/Users/dominic/.agents/skills/crystal_forge/skills/porting-to-crystal/SKILL.md)
-- [cross-language-crystal-parity](/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crystal-parity/SKILL.md)
-- [find-crystal-shards](/Users/dominic/.agents/skills/crystal_forge/skills/find-crystal-shards/SKILL.md)
-- [crystal-forge-setup-project](/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/SKILL.md)
+- implementation work: `porting-to-crystal`
+- inventory and drift checks: `cross-language-crystal-parity`
+- dependency selection: `find-crystal-shards`

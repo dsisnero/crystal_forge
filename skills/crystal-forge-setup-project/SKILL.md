@@ -1,65 +1,40 @@
 ---
-description: Set up or retrofit a repository with Crystal Forge meta-structure by creating CLAUDE.md/AGENTS.md, core docs, and baseline project conventions. Use when a project lacks agent-facing guidance or needs standardized engineering documentation and command gates.
 name: crystal-forge-setup-project
+description: Set up or retrofit a repo with Crystal Forge project scaffolding. Use when a repository lacks `CLAUDE.md`, `AGENTS.md`, baseline docs, or consistent local quality gates.
 ---
+
 # Crystal Forge Project Setup
 
-## Goal
-
-Create a minimal, consistent project meta-structure that supports both human
-contributors and agent workflows.
-
-## Scope
-
-This skill owns repo-level meta scaffolding only.
-
-Use companion skills for specialized work:
-
-- `initialize-crystal-porting-project` for source submodule + port bootstrap.
-- `porting-to-crystal` for translation/parity execution.
-- `forge-update-changelog` for change documentation updates.
+This skill owns repo-level scaffolding only. Use
+`initialize-crystal-porting-project` for upstream submodule bootstrap and
+`porting-to-crystal` for implementation work.
 
 ## Workflow
 
-### 1) Inspect current state
+### 1. Inspect before editing
 
-Check what already exists before creating files:
+Check which of these already exist and reuse real project commands instead of
+inventing generic ones:
 
-```bash
-ls -la CLAUDE.md AGENTS.md README.md CHANGELOG.md .gitignore 2>/dev/null
-ls docs 2>/dev/null
-```
+- `CLAUDE.md`
+- `AGENTS.md`
+- `README.md`
+- `CHANGELOG.md`
+- `.gitignore`
+- `docs/`
+- `Makefile` or equivalent scripts
 
-Detect language/tooling and only keep commands that actually exist.
+### 2. Create or tighten `CLAUDE.md`
 
-### 2) Gather missing project facts
+Include only:
 
-Collect only what cannot be inferred from the repository:
+1. Project name and one-line purpose
+2. Verified commands such as `install`, `update`, `format`, `lint`, `test`
+3. Links to the core docs
+4. A short principles section
+5. Concrete project conventions when they are real and repo-specific
 
-- one-line project purpose
-- 3-5 core engineering principles
-- optional project-specific conventions or constraints
-
-Do not ask for details already discoverable from files/scripts.
-
-### 3) Create/update `CLAUDE.md`
-
-Include these sections:
-
-1. Project name + one-line description.
-2. Verified commands block (`install`, `update`, `format`, `lint`, `test`, etc.)
-   using only real commands from `Makefile`/scripts.
-3. Documentation table linking to:
-   - `docs/architecture.md`
-   - `docs/development.md`
-   - `docs/coding-guidelines.md`
-   - `docs/testing.md`
-   - `docs/pr-workflow.md`
-4. Core principles.
-5. Commit message convention.
-6. Project conventions (only if concrete and non-generic).
-
-For Crystal projects, include Crystal gates:
+For Crystal projects, prefer:
 
 ```bash
 crystal tool format --check src spec
@@ -67,90 +42,45 @@ ameba src spec
 crystal spec
 ```
 
-### 4) Ensure `AGENTS.md` points to `CLAUDE.md`
+### 3. Sync `AGENTS.md`
 
-Keep guidance synchronized by symlinking:
+Point `AGENTS.md` at `CLAUDE.md` with a symlink when possible:
 
 ```bash
 ln -sf CLAUDE.md AGENTS.md
 ```
 
-### 5) Ensure docs files exist
+### 4. Ensure core docs exist
 
-Create missing files under `docs/` with concise, actionable starter content:
+Create concise starter docs only for missing files:
 
-- `architecture.md`
-- `development.md`
-- `coding-guidelines.md`
-- `testing.md`
-- `pr-workflow.md`
+- `docs/architecture.md`
+- `docs/development.md`
+- `docs/coding-guidelines.md`
+- `docs/testing.md`
+- `docs/pr-workflow.md`
 
-Do not create extra meta documentation files.
+### 5. Normalize repo-local temp and ignore rules
 
-### 6) Ensure `.gitignore` baseline
+- Keep generated scratch data under `./temp`.
+- Ensure `.gitignore` ignores `temp/` and `.crystal-cache/`.
+- Do not ignore `docs/`.
+- Use `templates.gitignore` as the baseline if a file is missing.
 
-If missing, create `.gitignore`. Ensure project-local tool directories and temp
-artifacts are ignored when appropriate (for example `.claude/`, `temp/`, local
-cache directories).
+### 6. Ensure cleanup and lint config
 
-Guardrails:
+- `Makefile` should expose `clean` and remove `./temp/*`.
+- Crystal repos should also have:
+  - `.ameba.yml` from `templates.ameba.yml`
+  - `.rumdl.toml` from `templates.rumdl.toml`
+- Exclude `temp/` from lint/format/documentation tooling where needed.
 
-- Do not ignore `docs/` (baseline documentation must be versioned).
-- Ignore local Crystal cache directory `.crystal-cache/`.
-- Use template baseline from:
-  - `/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/templates.gitignore`
+## Verification
 
-### 6b) Ensure `temp/` directory convention and Makefile `clean` target
+Confirm all of the following:
 
-All temporary files must be generated in `./temp` of the working directory to
-bypass permission issues. The `./temp` directory should:
-
-1. Exist in the repo (or be created on demand by scripts).
-2. Be listed in `.gitignore`.
-3. Be excluded from ameba, rumdl, and Crystal format checks.
-
-The `Makefile` must include a `clean` target that removes temporary files:
-
-```make
-clean:
-	rm -rf ./temp/*
-```
-
-If the project has no `Makefile`, create one with at minimum `clean` and
-project-appropriate gates.
-
-### 6c) Ensure Crystal lint/markdown config baselines
-
-For Crystal projects, ensure config files exist and include at least template
-baseline entries:
-
-- `.ameba.yml` baseline from:
-  - `/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/templates.ameba.yml`
-- `.rumdl.toml` baseline from:
-  - `/Users/dominic/.agents/skills/crystal_forge/skills/crystal-forge-setup-project/templates.rumdl.toml`
-
-### 7) Validate consistency
-
-Verify:
-
-1. Commands in `CLAUDE.md` exist and are runnable.
-2. `AGENTS.md` is a symlink to `CLAUDE.md`.
-3. Docs table links resolve.
-4. No duplicated policy blocks across files.
-
-## Completion Criteria
-
-1. `CLAUDE.md` exists with verified commands and principles.
-2. `AGENTS.md` symlinks to `CLAUDE.md`.
-3. Core docs exist under `docs/`.
-4. `.gitignore` contains required local-only paths including `temp/`.
-5. `Makefile` includes a `clean` target that runs `rm -rf ./temp/*`.
-6. Crystal projects include `.ameba.yml` and `.rumdl.toml` baseline config.
-7. `temp/` is excluded from ameba, rumdl, and format checks.
-8. Content is concise, non-duplicative, and repository-specific.
-
-## Related Skills
-
-- [initialize-crystal-porting-project](/Users/dominic/.agents/skills/crystal_forge/skills/initialize-crystal-porting-project/SKILL.md)
-- [porting-to-crystal](/Users/dominic/.agents/skills/crystal_forge/skills/porting-to-crystal/SKILL.md)
-- [forge-update-changelog](/Users/dominic/.agents/skills/crystal_forge/vendor/forge/skills/forge-update-changelog/SKILL.md)
+1. Commands listed in `CLAUDE.md` exist.
+2. `AGENTS.md` resolves to `CLAUDE.md`.
+3. Doc links resolve.
+4. Repo policy text is not duplicated across multiple files.
+5. `temp/` is ignored and the cleanup path is explicit.

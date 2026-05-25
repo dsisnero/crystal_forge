@@ -1,50 +1,32 @@
 ---
-description: Implement example-level Go-to-Crystal Bubble Tea parity by matching model/update/view behavior and deterministic harness inputs. Use when parity drift is owned by example logic rather than runtime/shard internals.
 name: bubbletea-port-example-parity
+description: Fix Bubble Tea parity at the example layer by matching Go example behavior, harness inputs, and view output. Use when drift is caused by example code rather than runtime or shard internals.
 ---
+
 # Bubble Tea Example Port Parity
 
-## Goal
+Own example-level parity only: `model`, `init`, `update`, `view`, and harness
+setup.
 
-Own parity fixes at the example layer (`model`, `update`, `view`, harness setup)
-when example behavior is not yet faithful to Go.
+## Route away when needed
 
-## Ownership Boundary
+- Need orchestration or capture commands: `bubbletea-parity-workflow`
+- Need Go golden generation: `bubbletea-go-teatest-golden`
+- Need Crystal verification: `bubbletea-crystal-teatest-golden`
+- Drift is in `src/` or `lib/`, not the example: `crystal-shard-lib-patch` or
+  the repo's runtime code path
 
-Use this skill for example-level behavior only.
+## Checklist
 
-Delegate to companion skills when needed:
+1. Match Go state shape and `init` / `update` / `view` semantics.
+2. Match the deterministic input sequence and quit behavior.
+3. Match window sizing and other harness assumptions.
+4. Keep runnable examples guarded with `if PROGRAM_NAME == __FILE__`.
+5. Verify against Go-generated fixtures, not Crystal-generated ones.
 
-- Orchestration and route selection: [bubbletea-parity-workflow](/Users/dominic/.agents/skills/bubbletea-parity-workflow/SKILL.md)
-- Go golden generation: [bubbletea-go-teatest-golden](/Users/dominic/.agents/skills/bubbletea-go-teatest-golden/SKILL.md)
-- Crystal golden verification: [bubbletea-crystal-teatest-golden](/Users/dominic/.agents/skills/bubbletea-crystal-teatest-golden/SKILL.md)
-- Runtime/shard drift under `lib/`: [crystal-shard-lib-patch](/Users/dominic/.agents/skills/crystal-shard-lib-patch/SKILL.md)
+## Guardrails
 
-## Routing Matrix
-
-| Trigger | Action |
-|---|---|
-| Message ordering, state transitions, or view output differ from Go example | Patch example logic/harness in this repo |
-| Example logic already matches Go but output still drifts | Escalate to runtime/shard fix (`src/` or `lib/`) |
-| Teatest/golden harness is absent | Use `run_parity.sh` temporarily, then add teatest/golden coverage |
-
-## Example-Level Checklist
-
-1. Match Go model state and `init/update/view` semantics exactly.
-2. Match deterministic input/event sequence and quit behavior.
-3. Match window sizing and environment assumptions.
-4. Keep runnable Crystal examples guarded with `if PROGRAM_NAME == __FILE__`.
-5. Verify against Go-generated golden fixtures (not Crystal-generated oracles).
-
-## Determinism Rules
-
-- Prefer explicit message injection (key/mouse/tick/frame) over ambient timing.
-- Avoid unbounded sleeps; if required, keep them minimal and symmetric with Go.
-- Keep temporary harness artifacts in `temp/` (or `$PARITY_TEMP_DIR`).
-
-## Execution Handoff
-
-Run orchestration and capture commands from
-[bubbletea-parity-workflow](/Users/dominic/.agents/skills/bubbletea-parity-workflow/SKILL.md).
-This skill should not duplicate command ownership; it owns only example-level
-behavior decisions and fixes.
+- Prefer explicit messages over sleeps and timing tricks.
+- Keep temporary harness files under `temp/`.
+- If the example logic already matches Go, stop patching the example and move
+  the bug to runtime or shard ownership.
