@@ -76,9 +76,11 @@ Do not treat parity tracking as optional project notes.
 Required workflow:
 
 1. Use `cross-language-crystal-parity` to bootstrap/validate the parity plan.
-2. Implement against inventory items.
-3. Update `<language>_port_inventory.tsv` statuses as work advances.
-4. Use `cross-language-crystal-parity` checks/adversarial verification before
+2. Keep `AGENTS.md` aligned with the repo's current feature-level parity policy
+   when the repository uses one.
+3. Implement against inventory items.
+4. Update `<language>_port_inventory.tsv` statuses as work advances.
+5. Use `cross-language-crystal-parity` checks/adversarial verification before
    marking work complete.
 
 ## Porting Loop
@@ -88,6 +90,8 @@ Required workflow:
 - Pin upstream via submodule or fixed commit.
 - Record exact upstream revision in branch notes/PR text.
 - Treat upstream tests and fixtures as normative behavior specs.
+- For Rust ports, read the relevant Rust source module and the nearest Rust
+  tests for the active feature before editing Crystal code.
 
 ### 2) Build/refresh parity checklist
 
@@ -121,10 +125,18 @@ inventory workflow (supports Go, Rust, Crystal, Java, and Ruby).
 - Preserve upstream platform/environment gates exactly (OS/arch/feature
   checks). If a gate cannot run locally, mark it blocked with evidence rather
   than changing test behavior.
+- Drive each feature through many small red-green-fix cycles:
+  - port the next missing or failing upstream spec first
+  - implement the smallest behavior change that makes it pass
+  - run focused checks for that step
+  - repeat until the whole top-level feature is complete
+- Do not stop or report helper-sized progress while a top-level feature is
+  still open. Keep the checkbox open until the full feature scope is done.
 
 ### 5) Verify continuously
 
-Run quality gates frequently:
+Run focused checks during each TDD step, then expand to the full gate suite
+before closing the feature:
 
 ```bash
 crystal tool format --check src spec
@@ -137,6 +149,14 @@ on diffs.
 
 For inventory drift checks and adversarial verification, run the canonical
 workflow from `cross-language-crystal-parity`.
+
+Commit policy inside a feature:
+
+- Small commits are allowed only as green checkpoints inside an ongoing
+  feature loop.
+- Do not treat a helper-sized commit as a stopping point.
+- Do not mark the top-level feature complete until the full parity/gate suite
+  is green and the inventory/plan are updated.
 
 ## Language Mapping (Quick Reference)
 

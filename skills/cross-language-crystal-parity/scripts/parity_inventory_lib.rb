@@ -190,8 +190,10 @@ module ParityInventory
   def files_for_language(base, language)
     files = Dir.glob('**/*', File::FNM_DOTMATCH, base: base.to_s)
                .reject do |f|
-      f.start_with?('.',
-                    '._') || f.include?('/.git/') || f.end_with?('/.git') || f.include?('/._')
+      f.start_with?('.') ||
+        f.include?('/.git/') ||
+        f.end_with?('/.git') ||
+        appledouble_path?(f)
     end
 
     selected = files.select do |rel|
@@ -217,6 +219,10 @@ module ParityInventory
     end
 
     selected.sort.map { |rel| [(base + rel).to_s, rel] }
+  end
+
+  def appledouble_path?(path)
+    path.split('/').any? { |segment| segment.start_with?('._') }
   end
 
   def emit_source(rel, kind, name)

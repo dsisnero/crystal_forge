@@ -150,11 +150,20 @@ Required `parity.md` policy:
   completed major features.
 - Each top-level checkbox item must represent a major git feature that can be
   implemented and reviewed as a coherent branch/PR-sized slice.
-- Each feature must be workable via red-green TDD:
-  - start from missing or failing upstream-parity specs
-  - implement until the new slice passes
-  - update inventory rows and mark the feature `[x]` only after parity is
-    demonstrated
+- Read the relevant source module and the nearest
+  tests for that feature before editing Crystal code. Treat both as required
+  source-of-truth inputs.
+- Each feature must be worked via repeated red-green TDD cycles driven by
+  upstream behavior:
+  - port the next missing or failing upstream-parity spec first
+  - implement the smallest behavior change that makes that spec pass
+  - run focused checks for that step
+  - repeat until the whole top-level feature scope is green
+- Do not stop or report helper-sized progress while a top-level feature is
+  still materially incomplete.
+- Small commits inside a feature are allowed only as green red-green
+  checkpoints in an ongoing loop; they are not a signal to stop, and the
+  top-level checkbox stays open until the whole feature is complete.
 - Do not create checklist items for individual methods, constants, or one-off
   inventory rows unless that row itself is genuinely a branch-sized feature.
 - Use the inventory to decide scope; use `parity.md` to decide sequencing.
@@ -265,10 +274,13 @@ Day-to-day policy:
 
 - Update `parity.md` only when feature-level sequencing or completion changes.
 - Update progress/mapping notes primarily in `<language>_port_inventory.tsv`.
-- When starting work, move one `parity.md` feature into active focus and port
-  the failing specs for that slice first.
-- When finishing work, update the affected inventory rows before marking the
-  feature `[x]` in `parity.md`.
+- When starting work, move one `parity.md` feature into active focus, read the
+  upstream source/tests for that feature, and port the next failing spec first.
+- During implementation, use many small red-green-fix cycles with focused
+  checks after each step, then keep looping instead of pausing on helper-sized
+  progress.
+- When finishing work, run the full parity/gate suite, update the affected
+  inventory rows, and only then mark the feature `[x]` in `parity.md`.
 - Run `check_*` scripts continuously.
 - Regenerate source/test manifests only for intentional refresh from upstream drift.
 
