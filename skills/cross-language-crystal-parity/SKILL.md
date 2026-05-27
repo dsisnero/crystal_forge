@@ -87,10 +87,37 @@ For each feature:
 3. Make the smallest behavior change that turns the spec green.
 4. Keep looping until the whole feature is done.
 5. Update the affected inventory rows before closing the feature.
+6. Check the feature box in `plans/parity.md`.
 
 Do not stop at helper-sized milestones if the top-level feature is still open.
 
-### 4. Re-run drift checks continuously
+### 4. Commit at feature completion (required)
+
+**Every feature completed in `plans/parity.md` must be committed before
+starting the next feature.** This is not optional. A single feature may
+span many files, but it must be committed as one atomic change after its
+checkbox is checked.
+
+Before committing:
+
+1. Check `git status` and `git diff --stat` to review scope.
+2. Stage only files belonging to the feature (plus `plans/parity.md` and
+   inventory updates).
+3. Write a commit message starting with `port:` followed by the feature
+   name(s) and a bullet list of what was implemented.
+4. Run `crystal tool format --check src spec` and `crystal build --no-codegen`
+   to verify nothing is broken.
+5. Push or keep local — but the commit must exist.
+
+Example:
+```
+port: JobExecutor execute, SubscriptionManager
+
+- JobExecutor: full execute with hooks, middleware, retry, snooze, stuck detection
+- SubscriptionManager: event subscriptions with SubscribeConfig, cancel support
+```
+
+### 5. Re-run drift checks continuously
 
 ```bash
 ./scripts/check_port_inventory.sh . plans/inventory/<language>_port_inventory.tsv <source_path> <language>
@@ -98,7 +125,7 @@ Do not stop at helper-sized milestones if the top-level feature is still open.
 ./scripts/check_test_parity.sh . plans/inventory/<language>_test_parity.tsv <source_path> <language>
 ```
 
-### 5. Run adversarial signoff
+### 6. Run adversarial signoff
 
 ```bash
 ./scripts/verify_parity_adversarial.sh . <source_path> <language> \
@@ -138,6 +165,9 @@ Rules:
 ## Guardrails
 
 - Use the inventory to decide scope and `plans/parity.md` to decide sequence.
+- Commit after every completed feature in `plans/parity.md`. Never batch
+  multiple unrelated features into one commit. Never leave completed features
+  uncommitted at session end.
 - Do not regenerate curated ledgers on top of active manual work.
 - Do not weaken upstream tests or fixtures to make Crystal look green.
 - Preserve behaviorally important internal data structures when upstream
