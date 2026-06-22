@@ -111,3 +111,4 @@ A feature is complete only when all are true:
 
 - `references/rust-porting.md`
 - `references/completion-gate.md`
+- `references/crystal-collection-design.md`

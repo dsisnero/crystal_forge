@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'pathname'
+require 'rbconfig'
 
 module ParityInventory
   SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript].freeze
@@ -26,13 +28,13 @@ module ParityInventory
   # Check if tree-sitter parsing is available, trying:
   # 1. Crystal discovery binary (preferred — supports 10 languages, query patterns, non-blocking)
   # 2. Ruby tree_sitter gem (legacy fallback)
-  def detect_treesitter(language)
+  def detect_treesitter(language, root_dir = nil)
     return false unless SUPPORTED_LANGUAGES.include?(language)
 
     # Crystal binary is the preferred tree-sitter backend since it uses
     # tree-sitter Query API with language-specific S-expression patterns
     # and supports non-blocking concurrent file processing.
-    return true if detect_crystal_discovery_binary
+    return true if detect_crystal_discovery_binary(root_dir)
 
     # Fallback: Ruby tree_sitter gem
     begin
@@ -55,21 +57,69 @@ module ParityInventory
 
   # Detect the Crystal discovery binary (chiasmus-discover or equivalent).
   # Returns binary invocation string or nil.
-  def detect_crystal_discovery_binary
-    @detect_crystal_discovery_binary ||= begin
-      # Check for compiled binary first
-      candidates = [
-        File.join(__dir__, '..', 'bin', 'chiasmus-discover'),
-        File.join(__dir__, '..', 'bin', 'chiasmus_discover'),
-      ]
-      found = candidates.find { |p| File.executable?(p) }
-      unless found
-        # Try crystal run as fallback
-        src = File.join(__dir__, '..', 'src', 'chiasmus_discover.cr')
-        found = "crystal run #{src} --" if File.exist?(src)
-      end
-      found
+  def detect_crystal_discovery_binary(root_dir = nil)
+    crystal_discovery_candidates(root_dir).find { |path| File.executable?(path) } ||
+      crystal_discovery_source_fallback
+  end
+
+  def crystal_discovery_candidates(root_dir = nil)
+    candidates = []
+
+    env_override = ENV['CHIASMUS_DISCOVER_BIN']
+    candidates << env_override if env_override && !env_override.strip.empty?
+
+    skill_root = File.expand_path('..', __dir__)
+    skill_bin = File.join(skill_root, 'bin')
+    executable_names = windows? ? %w[chiasmus-discover.exe chiasmus_discover.exe] : %w[chiasmus-discover chiasmus_discover]
+
+    platform_dir = bundled_platform_dir(skill_root)
+    executable_names.each do |name|
+      candidates << File.join(platform_dir, name)
+      candidates << File.join(skill_bin, name)
     end
+
+    if root_dir
+      executable_names.each do |name|
+        candidates << File.join(root_dir, 'bin', name)
+      end
+    end
+
+    candidates.uniq
+  end
+
+  def crystal_discovery_source_fallback
+    src = File.join(__dir__, '..', 'src', 'chiasmus_discover.cr')
+    "crystal run #{src} --" if File.exist?(src)
+  end
+
+  def bundled_platform_dir(skill_root)
+    File.join(skill_root, 'bin', platform_key)
+  end
+
+  def platform_key
+    host_os = RbConfig::CONFIG['host_os']
+    host_cpu = RbConfig::CONFIG['host_cpu']
+
+    os = case host_os
+         when /darwin/i then 'darwin'
+         when /linux/i then 'linux'
+         when /mswin|mingw|cygwin/i then 'windows'
+         else
+           host_os.downcase.gsub(/[^a-z0-9]+/, '-')
+         end
+
+    cpu = case host_cpu
+          when /arm64|aarch64/i then 'aarch64'
+          when /x86_64|amd64/i then 'x86_64'
+          else
+            host_cpu.downcase.gsub(/[^a-z0-9]+/, '-')
+          end
+
+    "#{os}-#{cpu}"
+  end
+
+  def windows?
+    RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/i
   end
 
   def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto')
@@ -78,13 +128,13 @@ module ParityInventory
     base = resolve_base(root_dir, source_path)
     raise ArgumentError, "Source directory does not exist: #{base}" unless base.directory?
 
-    parser = effective_parser(language, parser_mode)
+    parser = effective_parser(language, parser_mode, root_dir)
     if parser_mode == 'tree-sitter' && parser != 'tree-sitter'
       warn "tree-sitter parser unavailable for #{language}; falling back to regex"
     end
 
     items = if parser == 'tree-sitter'
-              result = discover_with_crystal_discovery(base, language)
+              result = discover_with_crystal_discovery(base, language, root_dir: root_dir)
               unless result.empty?
                 result.each { |item| item[:parser_mode] = 'tree-sitter' }
               end
@@ -98,8 +148,8 @@ module ParityInventory
 
   # Delegate to Crystal discovery binary for tree-sitter-backed parsing.
   # Falls back to regex if binary unavailable or fails.
-  def discover_with_crystal_discovery(base, language)
-    discover_bin = detect_crystal_discovery_binary
+  def discover_with_crystal_discovery(base, language, root_dir: nil)
+    discover_bin = detect_crystal_discovery_binary(root_dir)
     unless discover_bin
       warn "Crystal discovery binary not found; falling back to regex"
       return discover_with_regex(base, language)
@@ -132,17 +182,17 @@ module ParityInventory
         )
       end
       items
-    rescue => e
+  rescue => e
       warn "Crystal discovery failed: #{e.message}; falling back to regex"
       discover_with_regex(base, language)
     end
   end
 
-  def effective_parser(language, parser_mode)
+  def effective_parser(language, parser_mode, root_dir = nil)
     mode = parser_mode.to_s
     return 'regex' if mode.empty? || mode == 'regex'
-    return detect_treesitter(language) ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
-    return detect_treesitter(language) ? 'tree-sitter' : 'regex' if mode == 'auto'
+    return detect_treesitter(language, root_dir) ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
+    return detect_treesitter(language, root_dir) ? 'tree-sitter' : 'regex' if mode == 'auto'
 
     raise ArgumentError, "Invalid parser mode: #{parser_mode} (expected auto|regex|tree-sitter)"
   end

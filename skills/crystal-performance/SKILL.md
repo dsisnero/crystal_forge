@@ -7,6 +7,10 @@ description: Optimize Crystal code with measurement, not guesswork. Use when use
 
 Use this skill for measured optimization work only.
 
+If the user explicitly wants benchmark design, throughput numbers, concurrency
+scaling data, or proof that a change helps instead of guesses, also use
+`crystal-benchmarking`.
+
 Read the bundled references only as needed:
 
 - `references/profiling-tools.md`
@@ -39,6 +43,14 @@ tree. Write down the exact command and the number you will compare against.
 can appear ±20% from the mean. Discard the first (cold) run and average the
 rest.
 
+If Crystal writes compiler cache or benchmark artifacts outside the workspace,
+redirect them before measuring. Prefer commands like:
+
+```bash
+mkdir -p bin .crystal-cache
+CRYSTAL_CACHE_DIR=$PWD/.crystal-cache crystal build --release -o bin/bench ...
+```
+
 ### 3. Name the hot path
 
 Target one concrete cost such as allocation churn, duplicate scans, string
@@ -57,6 +69,29 @@ allocation profile. Otherwise revert it and record the result.
 ### 6. Re-run correctness gates
 
 Run focused specs first, then broader gates if the repo has them.
+
+When optimizing multiple interchangeable implementations of the same API
+surface, add or extend a shared contract test before trusting benchmark wins.
+Benchmark speed is not evidence of semantic parity.
+
+## Benchmark Harness Checks
+
+Repair the harness before drawing conclusions if any of these are true:
+
+- The benchmark can be optimized away because the result is unused.
+- The documented "MT" path only changes compile flags and does not spawn
+  concurrent workers.
+- Warmup and averaging are undocumented or absent.
+- The benchmark writes outputs to directories that may not exist.
+- The benchmark mixes setup cost into the timed region without meaning to.
+
+For concurrency benchmarks specifically, separate these questions:
+
+- Is the code compiled with MT/runtime flags?
+- Is the workload actually concurrent?
+- Is the benchmark measuring throughput, return latency, or background flush?
+
+The first does not imply the second.
 
 ## FFI Hot Paths (C binding libraries)
 

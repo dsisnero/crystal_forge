@@ -46,6 +46,14 @@ All generators accept `auto`, `regex`, or `tree-sitter` via `--parser` or
   Ruby gem, otherwise fall back with a warning
 - `regex`: lowest-fidelity fallback
 
+Tree-sitter binary lookup order:
+
+1. `CHIASMUS_DISCOVER_BIN`
+2. bundled skill binary under `bin/<platform>/`
+3. target repo `bin/chiasmus-discover`
+4. target repo source fallback (`src/chiasmus_discover.cr`)
+5. Ruby gem or regex fallback
+
 ## Bootstrap
 
 If the target repo does not have the parity scripts, copy them in before
@@ -59,6 +67,16 @@ chmod +x ./scripts/*.sh ./scripts/*.rb
 
 If bootstrapping is impossible, state clearly that the result is partial and
 name the skipped checks.
+
+If you want the skill to carry its own Chiasmus binaries, sync a tagged release
+from `dsisnero/chiasmus.cr` into the skill bundle first:
+
+```bash
+./scripts/sync_chiasmus_release_binaries.sh <tag>
+```
+
+This populates `bin/<platform>/` with `chiasmus-discover`,
+`chiasmus-parity`, and the matching `grammars/` directory.
 
 ## Standard flow
 
