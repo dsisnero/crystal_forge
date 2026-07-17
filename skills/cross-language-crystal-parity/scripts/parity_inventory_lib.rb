@@ -4,9 +4,18 @@
 require 'fileutils'
 require 'pathname'
 require 'rbconfig'
+require 'set'
 
 module ParityInventory
   SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript].freeze
+  CURATED_KINDS = {
+    'go' => Set.new(%w[const struct type func method test]),
+    'rust' => Set.new(%w[const struct enum trait type func method test]),
+    'crystal' => Set.new(%w[class module struct enum const func method test]),
+    'java' => Set.new(%w[class interface enum record const ctor func method test]),
+    'ruby' => Set.new(%w[class module const func method test]),
+    'typescript' => Set.new(%w[class const function interface method test type])
+  }.freeze
 
   Item = Struct.new(:id, :kind, :scope, :file, :name, keyword_init: true)
 
@@ -25,20 +34,14 @@ module ParityInventory
     vendor.exist? ? vendor : root
   end
 
-  # Check if tree-sitter parsing is available, trying:
-  # 1. Crystal discovery binary (preferred — supports 10 languages, query patterns, non-blocking)
-  # 2. Ruby tree_sitter gem (legacy fallback)
   def detect_treesitter(language, root_dir = nil)
     return false unless SUPPORTED_LANGUAGES.include?(language)
 
-    # Crystal binary is the preferred tree-sitter backend since it uses
-    # tree-sitter Query API with language-specific S-expression patterns
-    # and supports non-blocking concurrent file processing.
-    return true if detect_crystal_discovery_binary(root_dir)
+    return true unless discover_crystal_binary(root_dir).nil?
 
-    # Fallback: Ruby tree_sitter gem
     begin
       require 'tree_sitter'
+      # Common ruby gem names for language grammars.
       possible = [
         "tree_sitter/#{language}",
         "tree_sitter_#{language}",
@@ -55,11 +58,50 @@ module ParityInventory
     end
   end
 
-  # Detect the Crystal discovery binary (chiasmus-discover or equivalent).
-  # Returns binary invocation string or nil.
-  def detect_crystal_discovery_binary(root_dir = nil)
+  def discover_with_crystal_discovery(base, language, root_dir: nil)
+    discover_bin = discover_crystal_binary(root_dir)
+    unless discover_bin
+      warn "Crystal discovery binary not found; falling back to regex"
+      return discover_with_regex(base, language)
+    end
+
+    begin
+      output = IO.popen([discover_bin, '--language', language, '--dir', base.to_s, '--parser', 'tree-sitter'], &:read)
+      items = []
+      output.each_line do |line|
+        next if line.start_with?('#') || line.strip.empty?
+        cols = line.split("\t", -1)
+        next unless cols.length >= 2
+
+        source_id = cols[0].strip
+        kind = cols[1].strip
+        # Parse the ID format: {file}::{kind}::{name}
+        parts = source_id.split('::', 3)
+        next unless parts.length >= 3
+
+        file = parts[0]
+        item_kind = parts[1]
+        name = parts[2]
+        scope = item_kind == 'test' ? 'test' : 'source'
+
+        items << Item.new(
+          id: source_id,
+          kind: kind,
+          scope: scope,
+          file: file,
+          name: name
+        )
+      end
+      items
+    rescue => e
+      warn "Crystal discovery failed: #{e.message}; falling back to regex"
+      discover_with_regex(base, language)
+    end
+  end
+
+  def discover_crystal_binary(root_dir = nil)
     crystal_discovery_candidates(root_dir).find { |path| File.executable?(path) } ||
-      crystal_discovery_source_fallback
+      crystal_discovery_source_fallback(root_dir)
   end
 
   def crystal_discovery_candidates(root_dir = nil)
@@ -68,11 +110,11 @@ module ParityInventory
     env_override = ENV['CHIASMUS_DISCOVER_BIN']
     candidates << env_override if env_override && !env_override.strip.empty?
 
-    skill_root = File.expand_path('..', __dir__)
-    skill_bin = File.join(skill_root, 'bin')
+    script_root = File.expand_path('..', __dir__)
+    skill_bin = File.join(script_root, 'bin')
     executable_names = windows? ? %w[chiasmus-discover.exe chiasmus_discover.exe] : %w[chiasmus-discover chiasmus_discover]
 
-    platform_dir = bundled_platform_dir(skill_root)
+    platform_dir = bundled_platform_dir(script_root)
     executable_names.each do |name|
       candidates << File.join(platform_dir, name)
       candidates << File.join(skill_bin, name)
@@ -87,13 +129,17 @@ module ParityInventory
     candidates.uniq
   end
 
-  def crystal_discovery_source_fallback
-    src = File.join(__dir__, '..', 'src', 'chiasmus_discover.cr')
-    "crystal run #{src} --" if File.exist?(src)
+  def crystal_discovery_source_fallback(root_dir = nil)
+    candidates = []
+    candidates << File.join(root_dir, 'src', 'chiasmus_discover.cr') if root_dir
+    candidates << File.join(__dir__, '..', 'src', 'chiasmus_discover.cr')
+
+    src = candidates.find { |path| File.exist?(path) }
+    "crystal run #{src} --" if src
   end
 
-  def bundled_platform_dir(skill_root)
-    File.join(skill_root, 'bin', platform_key)
+  def bundled_platform_dir(script_root)
+    File.join(script_root, 'bin', platform_key)
   end
 
   def platform_key
@@ -135,9 +181,6 @@ module ParityInventory
 
     items = if parser == 'tree-sitter'
               result = discover_with_crystal_discovery(base, language, root_dir: root_dir)
-              unless result.empty?
-                result.each { |item| item[:parser_mode] = 'tree-sitter' }
-              end
               result
             else
               discover_with_regex(base, language)
@@ -146,53 +189,12 @@ module ParityInventory
     [base, dedupe_items(items)]
   end
 
-  # Delegate to Crystal discovery binary for tree-sitter-backed parsing.
-  # Falls back to regex if binary unavailable or fails.
-  def discover_with_crystal_discovery(base, language, root_dir: nil)
-    discover_bin = detect_crystal_discovery_binary(root_dir)
-    unless discover_bin
-      warn "Crystal discovery binary not found; falling back to regex"
-      return discover_with_regex(base, language)
-    end
-
-    begin
-      output = IO.popen([discover_bin, '--language', language, '--dir', base.to_s, '--parser', 'tree-sitter'], &:read)
-      items = []
-      output.each_line do |line|
-        next if line.start_with?('#') || line.strip.empty?
-        cols = line.split("\t", -1)
-        next unless cols.length >= 2
-
-        source_id = cols[0].strip
-        kind = cols[1].strip
-        parts = source_id.split('::', 3)
-        next unless parts.length >= 3
-
-        file = parts[0]
-        item_kind = parts[1]
-        name = parts[2]
-        scope = item_kind == 'test' ? 'test' : 'source'
-
-        items << Item.new(
-          id: source_id,
-          kind: kind,
-          scope: scope,
-          file: file,
-          name: name
-        )
-      end
-      items
-  rescue => e
-      warn "Crystal discovery failed: #{e.message}; falling back to regex"
-      discover_with_regex(base, language)
-    end
-  end
-
   def effective_parser(language, parser_mode, root_dir = nil)
     mode = parser_mode.to_s
+    treesitter_available = detect_treesitter(language, root_dir) || !discover_crystal_binary(root_dir).nil?
     return 'regex' if mode.empty? || mode == 'regex'
-    return detect_treesitter(language, root_dir) ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
-    return detect_treesitter(language, root_dir) ? 'tree-sitter' : 'regex' if mode == 'auto'
+    return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
+    return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'auto'
 
     raise ArgumentError, "Invalid parser mode: #{parser_mode} (expected auto|regex|tree-sitter)"
   end
@@ -208,19 +210,43 @@ module ParityInventory
     end.sort_by(&:id)
   end
 
+  def kind_from_id(id)
+    parts = id.to_s.split('::', 3)
+    return nil unless parts.length >= 3
+
+    parts[1]
+  end
+
+  def curated_inventory_items(items, language:)
+    allowed = CURATED_KINDS.fetch(language) do
+      raise ArgumentError, "Unsupported language for curated inventory: #{language}"
+    end
+
+    dedupe_items(items.select { |item| allowed.include?(item.kind) })
+  end
+
+  def manifest_kinds(path)
+    kinds = Set.new
+    load_manifest_rows(path, min_cols: 1).each do |cols|
+      kind = kind_from_id(cols[0])
+      kinds << kind if kind
+    end
+    kinds
+  end
+
+  def filter_items_for_manifest(items, manifest_path:, language:)
+    tracked_kinds = manifest_kinds(manifest_path)
+    tracked_kinds = CURATED_KINDS.fetch(language) if tracked_kinds.empty?
+    dedupe_items(items.select { |item| tracked_kinds.include?(item.kind) })
+  end
+
   def discover_with_regex(base, language)
     entries = files_for_language(base, language)
     source_items = []
     test_items = []
 
     entries.each do |path, rel|
-      begin
-        content = File.read(path, encoding: 'UTF-8')
-      rescue Encoding::InvalidByteSequenceError, ArgumentError => e
-        # Skip binary or invalid encoding files (like AppleDouble ._ files)
-        warn "Skipping file with encoding issues: #{rel} (#{e.message})"
-        next
-      end
+      content = read_utf8_text(path)
       src, test = case language
                   when 'go' then extract_go(rel, content)
                   when 'rust' then extract_rust(rel, content)
@@ -239,12 +265,7 @@ module ParityInventory
 
   def files_for_language(base, language)
     files = Dir.glob('**/*', File::FNM_DOTMATCH, base: base.to_s)
-               .reject do |f|
-      f.start_with?('.') ||
-        f.include?('/.git/') ||
-        f.end_with?('/.git') ||
-        appledouble_path?(f)
-    end
+               .reject { |f| f.start_with?('.') || f.include?('/.git/') || f.end_with?('/.git') }
 
     selected = files.select do |rel|
       full = base + rel
@@ -269,10 +290,6 @@ module ParityInventory
     end
 
     selected.sort.map { |rel| [(base + rel).to_s, rel] }
-  end
-
-  def appledouble_path?(path)
-    path.split('/').any? { |segment| segment.start_with?('._') }
   end
 
   def emit_source(rel, kind, name)
@@ -532,6 +549,7 @@ module ParityInventory
 
     [source, tests]
   end
+
   def extract_typescript(rel, text)
     source = []
     tests = []
@@ -641,7 +659,7 @@ module ParityInventory
     return {} unless path && File.file?(path)
 
     overrides = {}
-    File.readlines(path, chomp: true).each_with_index do |line, idx|
+    read_utf8_lines(path, chomp: true).each_with_index do |line, idx|
       next if line.start_with?('#') || line.strip.empty?
 
       cols = line.split("\t", -1)
@@ -660,7 +678,7 @@ module ParityInventory
 
   def load_manifest_rows(path, min_cols:)
     rows = []
-    File.readlines(path, chomp: true).each_with_index do |line, idx|
+    read_utf8_lines(path, chomp: true).each_with_index do |line, idx|
       next if line.start_with?('#') || line.strip.empty?
 
       cols = line.split("\t", -1)
@@ -669,5 +687,13 @@ module ParityInventory
       rows << cols
     end
     rows
+  end
+
+  def read_utf8_text(path)
+    File.binread(path).force_encoding(Encoding::UTF_8).scrub
+  end
+
+  def read_utf8_lines(path, chomp: false)
+    read_utf8_text(path).lines(chomp: chomp)
   end
 end

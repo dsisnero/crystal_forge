@@ -54,25 +54,27 @@ Tree-sitter binary lookup order:
 4. target repo source fallback (`src/chiasmus_discover.cr`)
 5. Ruby gem or regex fallback
 
-## Bootstrap
+## Bundled execution
 
-If the target repo does not have the parity scripts, copy them in before
-claiming parity coverage:
+Run the bundled scripts from this installed skill directory. Do not copy them
+into the target repo as the default workflow; copied repo-local snapshots drift
+and become stale.
+
+Resolve script paths relative to this `SKILL.md` file or the installed skill
+root, then pass the target repo root as the first argument.
+
+Example:
 
 ```bash
-mkdir -p ./scripts
-cp /Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crystal-parity/scripts/* ./scripts/
-chmod +x ./scripts/*.sh ./scripts/*.rb
+SKILL_DIR=/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crystal-parity
+"${SKILL_DIR}/scripts/ensure_parity_plan.sh" /path/to/repo <source_path> <language> auto 0
 ```
-
-If bootstrapping is impossible, state clearly that the result is partial and
-name the skipped checks.
 
 If you want the skill to carry its own Chiasmus binaries, sync a tagged release
 from `dsisnero/chiasmus.cr` into the skill bundle first:
 
 ```bash
-./scripts/sync_chiasmus_release_binaries.sh <tag>
+"${SKILL_DIR}/scripts/sync_chiasmus_release_binaries.sh" <tag>
 ```
 
 This populates `bin/<platform>/` with `chiasmus-discover`,
@@ -83,7 +85,7 @@ This populates `bin/<platform>/` with `chiasmus-discover`,
 ### 1. Create or refresh the plan
 
 ```bash
-./scripts/ensure_parity_plan.sh . <source_path> <language> auto 0
+"${SKILL_DIR}/scripts/ensure_parity_plan.sh" . <source_path> <language> auto 0
 ```
 
 This should leave you with validated inventory manifests plus a curated
@@ -138,15 +140,15 @@ port: JobExecutor execute, SubscriptionManager
 ### 5. Re-run drift checks continuously
 
 ```bash
-./scripts/check_port_inventory.sh . plans/inventory/<language>_port_inventory.tsv <source_path> <language>
-./scripts/check_source_parity.sh . plans/inventory/<language>_source_parity.tsv <source_path> <language>
-./scripts/check_test_parity.sh . plans/inventory/<language>_test_parity.tsv <source_path> <language>
+"${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv <source_path> <language>
+"${SKILL_DIR}/scripts/check_source_parity.sh" . plans/inventory/<language>_source_parity.tsv <source_path> <language>
+"${SKILL_DIR}/scripts/check_test_parity.sh" . plans/inventory/<language>_test_parity.tsv <source_path> <language>
 ```
 
 ### 6. Run adversarial signoff
 
 ```bash
-./scripts/verify_parity_adversarial.sh . <source_path> <language> \
+"${SKILL_DIR}/scripts/verify_parity_adversarial.sh" . <source_path> <language> \
   'crystal spec' \
   '<upstream test command>'
 ```

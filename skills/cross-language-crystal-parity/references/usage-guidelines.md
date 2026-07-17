@@ -1,3 +1,9 @@
+Set `SKILL_DIR` to the installed parity skill root before running these examples.
+
+```bash
+SKILL_DIR=/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crystal-parity
+```
+
 # Usage Guidelines
 
 ## Crystal Discovery Binary (Optional but Recommended)
@@ -24,7 +30,7 @@ Binary lookup order:
 To pre-bundle release artifacts into the skill:
 
 ```bash
-./scripts/sync_chiasmus_release_binaries.sh <tag>
+"${SKILL_DIR}/scripts/sync_chiasmus_release_binaries.sh <tag>
 ```
 
 ## Safe Repeat Runs
@@ -55,16 +61,16 @@ Examples:
 
 ```bash
 # Bootstrap only (expected once)
-./scripts/generate_port_inventory.sh . plans/inventory/rust_port_inventory.tsv vendor/upstream rust
+"${SKILL_DIR}/scripts/generate_port_inventory.sh" . plans/inventory/rust_port_inventory.tsv vendor/upstream rust
 
 # Intentional reset only
-./scripts/generate_port_inventory.sh . plans/inventory/rust_port_inventory.tsv vendor/upstream rust 1
+"${SKILL_DIR}/scripts/generate_port_inventory.sh" . plans/inventory/rust_port_inventory.tsv vendor/upstream rust 1
 
 # Intentional source manifest reset only
-./scripts/generate_source_parity_manifest.sh . plans/inventory/rust_source_parity.tsv vendor/upstream rust "" "" 1
+"${SKILL_DIR}/scripts/generate_source_parity_manifest.sh" . plans/inventory/rust_source_parity.tsv vendor/upstream rust "" "" 1
 
 # Intentional test manifest reset only
-./scripts/generate_test_parity_manifest.sh . plans/inventory/rust_test_parity.tsv vendor/upstream rust 1
+"${SKILL_DIR}/scripts/generate_test_parity_manifest.sh" . plans/inventory/rust_test_parity.tsv vendor/upstream rust 1
 ```
 
 ## Recommended Day-to-Day Loop
@@ -72,7 +78,7 @@ Examples:
 1. Bootstrap/validate once:
 
 ```bash
-./scripts/ensure_parity_plan.sh . vendor/upstream rust auto 0
+"${SKILL_DIR}/scripts/ensure_parity_plan.sh" . vendor/upstream rust auto 0
 ```
 
 2. Create or refresh `plans/parity.md` as a curated feature plan.
@@ -86,9 +92,9 @@ Examples:
 5. Re-run checks continuously:
 
 ```bash
-./scripts/check_port_inventory.sh . plans/inventory/rust_port_inventory.tsv vendor/upstream rust
-./scripts/check_source_parity.sh . plans/inventory/rust_source_parity.tsv vendor/upstream rust
-./scripts/check_test_parity.sh . plans/inventory/rust_test_parity.tsv vendor/upstream rust
+"${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/rust_port_inventory.tsv vendor/upstream rust
+"${SKILL_DIR}/scripts/check_source_parity.sh" . plans/inventory/rust_source_parity.tsv vendor/upstream rust
+"${SKILL_DIR}/scripts/check_test_parity.sh" . plans/inventory/rust_test_parity.tsv vendor/upstream rust
 ```
 
 6. Mark the feature `[x]` in `plans/parity.md` only after its inventory rows are
@@ -96,5 +102,5 @@ Examples:
 7. Run adversarial signoff before merge:
 
 ```bash
-./scripts/verify_parity_adversarial.sh . vendor/upstream rust 'crystal spec' 'cargo test'
+"${SKILL_DIR}/scripts/verify_parity_adversarial.sh" . vendor/upstream rust 'crystal spec' 'cargo test'
 ```
