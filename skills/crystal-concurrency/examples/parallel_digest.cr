@@ -64,30 +64,20 @@ puts "  Files:   #{entries_default.size}"
 puts "  Time:    #{time_default}"
 puts ""
 
-{% if flag?(:execution_context) %}
-  puts "=== ExecutionContext::Parallel (truly parallel) ==="
-  ctx = Fiber::ExecutionContext::Parallel.new("digesters", num_workers)
-  entries_parallel, time_parallel = run_digest(root, num_workers) do |work|
-    ctx.spawn { work.call }
-  end
-  puts "  Files:   #{entries_parallel.size}"
-  puts "  Time:    #{time_parallel}"
-  puts ""
+puts "=== ExecutionContext::Parallel (truly parallel) ==="
+ctx = Fiber::ExecutionContext::Parallel.new("digesters", maximum: num_workers)
+entries_parallel, time_parallel = run_digest(root, num_workers) do |work|
+  ctx.spawn { work.call }
+end
+puts "  Files:   #{entries_parallel.size}"
+puts "  Time:    #{time_parallel}"
+puts ""
 
-  speedup = time_default.total_milliseconds / time_parallel.total_milliseconds
-  puts "=== Speedup: #{speedup.round(2)}x ==="
-  puts ""
+speedup = time_default.total_milliseconds / time_parallel.total_milliseconds
+puts "=== Speedup: #{speedup.round(2)}x ==="
+puts ""
 
-  entries_parallel.sort_by!(&.path)
-  entries_parallel.each do |entry|
-    puts "#{entry.digest}  #{entry.path}"
-  end
-{% else %}
-  puts "(compile with -Dpreview_mt -Dexecution_context to benchmark parallel mode)"
-  puts ""
-
-  entries_default.sort_by!(&.path)
-  entries_default.each do |entry|
-    puts "#{entry.digest}  #{entry.path}"
-  end
-{% end %}
+entries_parallel.sort_by!(&.path)
+entries_parallel.each do |entry|
+  puts "#{entry.digest}  #{entry.path}"
+end

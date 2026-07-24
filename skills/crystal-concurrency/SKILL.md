@@ -27,10 +27,12 @@ also use `crystal-benchmarking`.
 These rules prevent the most common bugs. Violating any of them causes silent
 deadlocks, data races, or ambiguous behavior.
 
-1. **`Channel(Bool)` for signaling, never `Channel(Nil)`** — `receive?` uses
-   `nil` as the "closed" sentinel. When the payload is `Nil`, you cannot
-   distinguish "got a value" from "channel closed". Use `Channel(Bool)` for
-   done/quit/semaphore channels.
+1. **Use `Channel(Nil)` only with `receive`; use a non-nil type with
+   `receive?`** — `Channel(Nil)` is a fine one-shot completion signal when the
+   receiver calls `receive`. But `receive?` uses `nil` as its "closed" sentinel,
+   so a `Channel(Nil)` cannot distinguish "got a value" from "channel closed".
+   Use `Channel(Bool)` (or another non-nil type) for close-aware done, quit, and
+   semaphore channels.
 
 2. **`receive?` in select for close-safe receives** — `receive` raises
    `ClosedError` when a channel closes inside a `select`. Use `receive?` which
@@ -43,9 +45,9 @@ deadlocks, data races, or ambiguous behavior.
 4. **`select ... else ... end` = Go's `select { default: }`** — the `else`
    branch fires when no channel operation can complete immediately (non-blocking).
 
-5. **Merge pattern for fan-out under MT** — bare `select when ch.receive` across
-   multiple channels that may close raises `ClosedError` under `-Dpreview_mt`.
-   Fix: merge outputs with `WaitGroup` + `receive?`.
+5. **Merge closeable fan-out outputs** — bare `select when ch.receive` across
+   multiple channels that may close raises `ClosedError`. Merge outputs with
+   `WaitGroup` + `receive?`, especially when the outputs can run in parallel.
 
 6. **Double-close is safe** — Crystal silently ignores closing an already-closed
    channel. Go panics. Don't rely on this.
@@ -153,19 +155,43 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 Read `references/execution-contexts.md` for code examples and benchmarks.
 
 ```
-Is the work CPU-bound?
-├── No (I/O-bound) → default `spawn` (fibers yield on I/O)
-└── Yes
-    ├── Embarrassingly parallel? → ExecutionContext::Parallel
-    │   ctx = Fiber::ExecutionContext::Parallel.new("name", num_threads)
+Is the work I/O-bound?
+├── Yes → `spawn` in the current context; standard-library I/O yields to the
+│        event loop while it waits.
+└── No (CPU-bound or intentionally blocking)
+    ├── Parallelizable CPU work? → `ExecutionContext::Parallel`
+    │   ctx = Fiber::ExecutionContext::Parallel.new("name", maximum: capacity)
     │   ctx.spawn { work }
-    ├── Blocking FFI call? → ExecutionContext::Isolated
-    │   Fiber::ExecutionContext::Isolated.new("name") { blocking_call }
-    └── Just grouping? → ExecutionContext::Concurrent
-        (same as default, one thread, for logical separation)
+    ├── One task must own a thread for its lifetime? → `ExecutionContext::Isolated`
+    │   main = Fiber::ExecutionContext::Isolated.new("name") { blocking_call }
+    │   main.wait
+    └── Need an independent, non-parallel group? → `ExecutionContext::Concurrent`
+        (one runnable fiber at a time; a blocking fiber blocks this context)
 ```
 
-Compile flags: `-Dpreview_mt -Dexecution_context`
+### Crystal 1.21 execution-context rules
+
+Execution contexts are enabled by default in Crystal 1.21. The default context is
+`Parallel`, but its initial parallelism is **1** for backward compatibility. To
+make process-default work parallel, resize it explicitly; otherwise create and
+use a named `Parallel` context. Parallelism is a maximum capacity, not a promise
+of a fixed number of dedicated worker threads. A parallel context autoscales up
+to that capacity. Too many simultaneously blocking fibers can exhaust it and
+then block remaining work; bound blocking work with a semaphore or use another
+context.
+
+```crystal
+default = Fiber::ExecutionContext.default
+default.resize(Fiber::ExecutionContext.default_workers_count)
+```
+
+Outside an `Isolated` context, `spawn` uses the current fiber's execution
+context; `ctx.spawn` chooses another one. An isolated fiber cannot spawn another
+fiber in its own context: configure `spawn_context:` when creating it, or call a
+different context's `spawn`. A fiber never moves between contexts, but a fiber in a `Parallel` or
+`Concurrent` context is not pinned to an OS thread and can resume on a different
+thread. Avoid `@[ThreadLocal]` and do not retain thread-local assumptions across
+a yield or blocking call.
 
 Do not jump to `ExecutionContext` because a path "looks parallelizable". Measure
 the current path first and identify whether the real cost is I/O, parser work,
@@ -179,7 +205,8 @@ FFI, cache persistence, or actual CPU-bound computation.
 
 ## MT Safety Checklist
 
-When running specs with `-Dpreview_mt`:
+In Crystal 1.21, any `Parallel` context (including a resized default context)
+means shared state may be accessed concurrently:
 
 - Channels are thread-safe by design
 - WaitGroup is implemented with atomics
@@ -191,6 +218,23 @@ When running specs with `-Dpreview_mt`:
 - **Shared mutable state without locks** — add Mutex or Atomic
 - **Timing-sensitive assertions** — add tolerance, thread scheduling is
   non-deterministic
+- **Thread-local assumptions across yields** — invalid in `Parallel`; a fiber
+  can resume on a different OS thread. `Concurrent` fibers can also switch
+  threads after a blocking syscall.
+
+## Scheduling and Lifetime Rules
+
+- Fibers are cooperative. CPU-bound code that neither blocks nor calls
+  `Fiber.yield` monopolizes its scheduler; yield deliberately in long-running
+  cooperative work.
+- `spawn` queues work; it does not run the fiber immediately. The process exits
+  when the main fiber completes, so join work with a `Channel` or `WaitGroup`
+  instead of using `sleep` as completion synchronization.
+- Prefer `spawn method_call(argument)` when a loop-local value changes between
+  iterations: the spawn macro captures the call arguments. A bare spawned block
+  captures an outer local by reference; block parameters are safe.
+- A buffered channel controls backpressure and scheduling, not worker lifetime.
+  A send blocks only when no receiver is already waiting and the buffer is full.
 
 ## References
 
@@ -202,6 +246,10 @@ When running specs with `-Dpreview_mt`:
   `references/data-flow.md`, `references/resilience.md`, `references/computation.md`
 - `references/execution-contexts.md` — Parallel, Concurrent, Isolated with
   benchmarks, worker pool and map-reduce examples
+- Crystal 1.21 official documentation: [Concurrency guide](https://crystal-lang.org/reference/1.21/guides/concurrency.html),
+  [Parallelism guide](https://crystal-lang.org/reference/1.21/guides/parallelism.html),
+  [ExecutionContext API](https://crystal-lang.org/api/1.21.0/Fiber/ExecutionContext.html),
+  and [1.21 release notes](https://crystal-lang.org/2026/07/16/1.21.0-released/)
 
 ## Full Examples
 

@@ -5,7 +5,6 @@ require "wait_group"
 #
 # Build:
 #   crystal run examples/worker_pool.cr
-#   crystal run -Dpreview_mt -Dexecution_context examples/worker_pool.cr
 
 def cpu_work(val : Int32, iterations : Int32) : Int64
   result = 0_i64
@@ -74,16 +73,14 @@ end
 puts "  Results: #{results_default.size}"
 puts "  Time:    #{time_default}"
 
-{% if flag?(:execution_context) %}
-  puts ""
-  puts "=== ExecutionContext::Parallel ==="
-  ctx = Fiber::ExecutionContext::Parallel.new("pool", num_workers)
-  results_parallel, time_parallel = run_pool(num_workers, data) do |work|
-    ctx.spawn { work.call }
-  end
-  puts "  Results: #{results_parallel.size}"
-  puts "  Time:    #{time_parallel}"
-  puts ""
-  speedup = time_default.total_milliseconds / time_parallel.total_milliseconds
-  puts "=== Speedup: #{speedup.round(2)}x ==="
-{% end %}
+puts ""
+puts "=== ExecutionContext::Parallel ==="
+ctx = Fiber::ExecutionContext::Parallel.new("pool", maximum: num_workers)
+results_parallel, time_parallel = run_pool(num_workers, data) do |work|
+  ctx.spawn { work.call }
+end
+puts "  Results: #{results_parallel.size}"
+puts "  Time:    #{time_parallel}"
+puts ""
+speedup = time_default.total_milliseconds / time_parallel.total_milliseconds
+puts "=== Speedup: #{speedup.round(2)}x ==="
