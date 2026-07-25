@@ -20,7 +20,7 @@ export PORT_PARSER="${PARSER}"
 export PORT_SCOPE_INCLUDE="${SCOPE_INCLUDE}"
 export PORT_SCOPE_EXCLUDE="${SCOPE_EXCLUDE}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
 SOURCE_PATH="$(resolve_port_source_path "${ROOT_DIR}" "${SOURCE_PATH}")"
 INV_DIR="${ROOT_DIR}/plans/inventory"

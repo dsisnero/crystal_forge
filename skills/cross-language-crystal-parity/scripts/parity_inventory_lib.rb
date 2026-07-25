@@ -8,14 +8,15 @@ require 'rbconfig'
 require 'set'
 
 module ParityInventory
-  SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript].freeze
+  SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript csharp].freeze
   CURATED_KINDS = {
     'go' => Set.new(%w[const struct type func method test]),
     'rust' => Set.new(%w[const struct enum trait type func method test]),
     'crystal' => Set.new(%w[class module struct enum const func method test]),
     'java' => Set.new(%w[class interface enum record const ctor func method test]),
     'ruby' => Set.new(%w[class module const func method test]),
-    'typescript' => Set.new(%w[class const function interface method test type])
+    'typescript' => Set.new(%w[class const function interface method test type]),
+    'csharp' => Set.new(%w[class interface enum record const ctor func method test])
   }.freeze
 
   Item = Struct.new(:id, :kind, :scope, :file, :name, keyword_init: true)

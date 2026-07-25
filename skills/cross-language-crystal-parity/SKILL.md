@@ -6,7 +6,7 @@ description: Track source-to-Crystal parity with reproducible manifests and a cu
 # Cross-Language Crystal Parity
 
 Use one workflow for parity planning, drift checks, and signoff across supported
-upstream languages: `go`, `rust`, `crystal`, `java`, `ruby`, and
+upstream languages: `go`, `rust`, `crystal`, `java`, `csharp`, `ruby`, and
 `typescript`/`javascript`.
 
 Read `references/usage-guidelines.md` or `references/invariants.md` only when
@@ -53,6 +53,10 @@ Tree-sitter binary lookup order:
 3. target repo `bin/chiasmus-discover`
 4. target repo source fallback (`src/chiasmus_discover.cr`)
 5. regex fallback in `auto` mode only
+
+The `darwin-aarch64` discovery bundle includes native grammars for Java, Rust,
+C#, TypeScript, Python, Ruby, and Go. Use the language identifiers `java`,
+`rust`, `csharp`, `typescript`, `python`, `ruby`, and `go` with strict mode.
 
 ## Scope and preflight
 

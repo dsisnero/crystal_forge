@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="${1:-$(pwd)}"
 LANGUAGE="${2:-rust}"
 PARSER="${3:-tree-sitter}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 for wrapper in "${SCRIPT_DIR}"/*.sh; do
@@ -36,6 +36,7 @@ if [[ "${PARSER}" == "tree-sitter" ]]; then
   case "${LANGUAGE}" in
     rust) printf 'pub struct SkillProbe;\n' > "${sample_dir}/probe.rs" ;;
     go) printf 'package probe\ntype SkillProbe struct{}\n' > "${sample_dir}/probe.go" ;;
+    java) printf 'public class SkillProbe {}\n' > "${sample_dir}/SkillProbe.java" ;;
     *) printf '// skill probe\n' > "${sample_dir}/probe.${LANGUAGE}" ;;
   esac
   output="$("${discover_bin}" --language "${LANGUAGE}" --dir "${sample_dir}" --parser tree-sitter)"

@@ -14,7 +14,7 @@ EXAMPLE_TARGET="${PORT_EXAMPLE_TARGET:-}"
 EXAMPLE_EXT="${PORT_EXAMPLE_EXT:-}"
 EXAMPLE_TARGET_EXT="${PORT_EXAMPLE_TARGET_EXT:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
 SOURCE_PATH="$(resolve_port_source_path "${ROOT_DIR}" "${SOURCE_PATH}")"
 
