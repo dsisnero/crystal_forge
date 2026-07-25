@@ -6,6 +6,19 @@ SOURCE_PATH="${2:-${PORT_SOURCE_DIR:-}}"
 LANGUAGE="${3:-${PORT_LANGUAGE:-go}}"
 PARSER="${4:-${PORT_PARSER:-auto}}"
 REFRESH="${5:-0}"
+SCOPE_INCLUDE="${6:-${PORT_SCOPE_INCLUDE:-}}"
+SCOPE_EXCLUDE="${7:-${PORT_SCOPE_EXCLUDE:-}}"
+
+case "${PARSER}" in
+  auto|regex|tree-sitter) ;;
+  *)
+    echo "Invalid parser mode: ${PARSER} (expected auto|regex|tree-sitter)" >&2
+    exit 2
+    ;;
+esac
+export PORT_PARSER="${PARSER}"
+export PORT_SCOPE_INCLUDE="${SCOPE_INCLUDE}"
+export PORT_SCOPE_EXCLUDE="${SCOPE_EXCLUDE}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
@@ -16,6 +29,9 @@ SOURCE_MANIFEST="${INV_DIR}/${LANGUAGE}_source_parity.tsv"
 TEST_MANIFEST="${INV_DIR}/${LANGUAGE}_test_parity.tsv"
 
 mkdir -p "${INV_DIR}"
+
+"${SCRIPT_DIR}/verify_skill_install.sh" "${ROOT_DIR}" "${LANGUAGE}" "${PARSER}"
+echo "PARITY_REQUESTED_SCOPE={\"include_paths\":\"${PORT_SCOPE_INCLUDE}\",\"exclude_patterns\":\"${PORT_SCOPE_EXCLUDE}\"}"
 
 # SAFETY CHECK: Never allow overwriting port_inventory via ensure_parity_plan
 # Port inventory is a curated working ledger - always preserve it

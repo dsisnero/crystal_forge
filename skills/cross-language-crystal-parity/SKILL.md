@@ -42,8 +42,8 @@ All generators accept `auto`, `regex`, or `tree-sitter` via `--parser` or
 `PORT_PARSER`.
 
 - `auto`: preferred default
-- `tree-sitter`: use the Crystal discovery binary when available, otherwise the
-  Ruby gem, otherwise fall back with a warning
+- `tree-sitter`: require the Chiasmus discovery binary; fail when it is not
+  available rather than silently producing a regex inventory
 - `regex`: lowest-fidelity fallback
 
 Tree-sitter binary lookup order:
@@ -52,16 +52,29 @@ Tree-sitter binary lookup order:
 2. bundled skill binary under `bin/<platform>/`
 3. target repo `bin/chiasmus-discover`
 4. target repo source fallback (`src/chiasmus_discover.cr`)
-5. Ruby gem or regex fallback
+5. regex fallback in `auto` mode only
 
-## Bundled execution
+## Scope and preflight
 
-Run the bundled scripts from this installed skill directory. Do not copy them
-into the target repo as the default workflow; copied repo-local snapshots drift
-and become stale.
+Use `PORT_SCOPE_INCLUDE` (comma-separated roots relative to the upstream source)
+and `PORT_SCOPE_EXCLUDE` (comma-separated relative globs) to make a workspace
+scope explicit. Every generated TSV has a sibling `.metadata.json` recording
+the effective backend, discovery command, and effective scope.
 
-Resolve script paths relative to this `SKILL.md` file or the installed skill
-root, then pass the target repo root as the first argument.
+Run `scripts/verify_skill_install.sh <target-root> <language> tree-sitter`
+before a strict downstream refresh. It verifies wrapper permissions and executes
+a minimal tree-sitter discovery probe. `auto` remains allowed to report regex
+when no discovery binary is available; `tree-sitter` fails instead.
+
+## Canonical script execution
+
+Run scripts from this canonical skill directory. Do not copy them into a target
+repo or maintain a second installed script snapshot: both drift and become
+stale. If a Codex-installed skill needs these scripts, point its `scripts/`
+directory at this one (for example with a symlink) rather than copying files.
+
+Resolve script paths relative to this `SKILL.md` file, then pass the target repo
+root as the first argument.
 
 Example:
 

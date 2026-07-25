@@ -14,7 +14,9 @@ options = {
   example_dir: ENV['PORT_EXAMPLE_DIR'],
   example_target: ENV['PORT_EXAMPLE_TARGET'],
   example_ext: ENV['PORT_EXAMPLE_EXT'],
-  example_target_ext: ENV['PORT_EXAMPLE_TARGET_EXT']
+  example_target_ext: ENV['PORT_EXAMPLE_TARGET_EXT'],
+  include_paths: ENV.fetch('PORT_SCOPE_INCLUDE', '').split(','),
+  exclude_patterns: ENV.fetch('PORT_SCOPE_EXCLUDE', '').split(',')
 }
 
 OptionParser.new do |opts|
@@ -24,6 +26,8 @@ OptionParser.new do |opts|
   opts.on('--source PATH', 'Source path (absolute or relative to root)') { |v| options[:source_path] = v }
   opts.on('--language LANG', 'Language: go|rust|crystal|java|ruby') { |v| options[:language] = v }
   opts.on('--parser MODE', 'Parser: auto|regex|tree-sitter') { |v| options[:parser] = v }
+  opts.on('--include PATH', 'Include path relative to source (repeatable)') { |v| options[:include_paths] << v }
+  opts.on('--exclude GLOB', 'Exclude glob relative to source (repeatable)') { |v| options[:exclude_patterns] << v }
   opts.on('--force-overwrite', 'Allow overwriting an existing port inventory file') { options[:force_overwrite] = true }
   opts.on('--example-dir DIR', 'Source example directory (e.g., vendor/rig/rig-core/examples)') do |v|
     options[:example_dir] = v
@@ -47,7 +51,9 @@ base, items = ParityInventory.discover_items(
   root_dir: options[:root_dir],
   source_path: options[:source_path],
   language: language,
-  parser_mode: options[:parser]
+  parser_mode: options[:parser],
+  include_paths: options[:include_paths],
+  exclude_patterns: options[:exclude_patterns]
 )
 
 # Add example file items if example parameters are provided
@@ -65,7 +71,7 @@ if options[:example_dir] && options[:example_target]
   items = ParityInventory.dedupe_items(items)
 end
 
-items = ParityInventory.curated_inventory_items(items, language: language)
+items = ParityInventory.curated_inventory_items(items.reject { |item| item.scope == 'test' }, language: language)
 
 if items.empty?
   warn "No #{language} items found under #{base}"
@@ -73,5 +79,6 @@ if items.empty?
 end
 
 ParityInventory.write_inventory(out, items)
+ParityInventory.write_discovery_metadata(out)
 count = items.length
 puts "Generated #{out} (#{count} items) from #{base}."

@@ -11,7 +11,9 @@ options = {
   language: ENV["PORT_LANGUAGE"] || "go",
   parser: ENV["PORT_PARSER"] || "auto",
   notes_overrides: nil,
-  force_overwrite: ENV["PORT_FORCE_OVERWRITE"] == "1"
+  force_overwrite: ENV["PORT_FORCE_OVERWRITE"] == "1",
+  include_paths: ENV.fetch("PORT_SCOPE_INCLUDE", "").split(","),
+  exclude_patterns: ENV.fetch("PORT_SCOPE_EXCLUDE", "").split(",")
 }
 
 OptionParser.new do |opts|
@@ -21,6 +23,8 @@ OptionParser.new do |opts|
   opts.on("--source PATH", "Source path (absolute or relative to root)") { |v| options[:source_path] = v }
   opts.on("--language LANG", "Language: go|rust|crystal|java|ruby") { |v| options[:language] = v }
   opts.on("--parser MODE", "Parser: auto|regex|tree-sitter") { |v| options[:parser] = v }
+  opts.on("--include PATH", "Include path relative to source (repeatable)") { |v| options[:include_paths] << v }
+  opts.on("--exclude GLOB", "Exclude glob relative to source (repeatable)") { |v| options[:exclude_patterns] << v }
   opts.on("--notes-overrides FILE", "Optional TSV file: source_api_id<TAB>notes") { |v| options[:notes_overrides] = v }
   opts.on("--force-overwrite", "Allow overwriting an existing source parity file") { options[:force_overwrite] = true }
 end.parse!
@@ -40,7 +44,9 @@ base, items = ParityInventory.discover_items(
   root_dir: options[:root_dir],
   source_path: options[:source_path],
   language: language,
-  parser_mode: options[:parser]
+  parser_mode: options[:parser],
+  include_paths: options[:include_paths],
+  exclude_patterns: options[:exclude_patterns]
 )
 
 source_items = items.select { |item| item.scope == "source" }
@@ -58,4 +64,5 @@ ParityInventory.write_scope_manifest(
   header_id: "source_api_id",
   notes_overrides: notes_overrides
 )
+ParityInventory.write_discovery_metadata(out)
 puts "Generated #{out} (#{source_items.length} source API items) from #{base}."

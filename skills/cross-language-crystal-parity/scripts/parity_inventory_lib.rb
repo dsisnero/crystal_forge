@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'json'
 require 'pathname'
 require 'rbconfig'
 require 'set'
@@ -58,20 +59,32 @@ module ParityInventory
     end
   end
 
-  def discover_with_crystal_discovery(base, language, root_dir: nil)
+  def discover_with_crystal_discovery(base, language, root_dir: nil, fallback: true)
     discover_bin = discover_crystal_binary(root_dir)
     unless discover_bin
-      warn "Crystal discovery binary not found; falling back to regex"
-      return discover_with_regex(base, language)
+      message = "Crystal discovery binary not found"
+      raise RuntimeError, message unless fallback
+
+      warn "#{message}; falling back to regex"
+      return [discover_with_regex(base, language), 'regex', nil]
     end
 
     begin
-      output = IO.popen([discover_bin, '--language', language, '--dir', base.to_s, '--parser', 'tree-sitter'], &:read)
+      command = Array(discover_bin) + ['--language', language, '--dir', base.to_s, '--parser', 'tree-sitter']
+      output = IO.popen(command, &:read)
+      status = $?
+      unless status&.success?
+        raise RuntimeError, "Crystal discovery exited #{status&.exitstatus}: #{output.strip}"
+      end
       items = []
+      reported_parsers = Set.new
       output.each_line do |line|
         next if line.start_with?('#') || line.strip.empty?
         cols = line.split("\t", -1)
         next unless cols.length >= 2
+
+        parser = cols[4].to_s[/parser=([^\s]+)/, 1]
+        reported_parsers << parser if parser
 
         source_id = cols[0].strip
         kind = cols[1].strip
@@ -82,7 +95,7 @@ module ParityInventory
         file = parts[0]
         item_kind = parts[1]
         name = parts[2]
-        scope = item_kind == 'test' ? 'test' : 'source'
+        scope = item_kind == 'test' || test_file_for_language?(language, file) ? 'test' : 'source'
 
         items << Item.new(
           id: source_id,
@@ -92,10 +105,16 @@ module ParityInventory
           name: name
         )
       end
-      items
+      unless reported_parsers == Set.new(['tree-sitter'])
+        reported = reported_parsers.to_a.sort.join(', ')
+        raise RuntimeError, "Crystal discovery did not report tree-sitter (reported: #{reported.empty? ? 'none' : reported})"
+      end
+      [items, 'chiasmus-tree-sitter', command.join(' ')]
     rescue => e
+      raise unless fallback
+
       warn "Crystal discovery failed: #{e.message}; falling back to regex"
-      discover_with_regex(base, language)
+      [discover_with_regex(base, language), 'regex', nil]
     end
   end
 
@@ -135,7 +154,7 @@ module ParityInventory
     candidates << File.join(__dir__, '..', 'src', 'chiasmus_discover.cr')
 
     src = candidates.find { |path| File.exist?(path) }
-    "crystal run #{src} --" if src
+    ['crystal', 'run', src, '--'] if src
   end
 
   def bundled_platform_dir(script_root)
@@ -168,7 +187,7 @@ module ParityInventory
     RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/i
   end
 
-  def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto')
+  def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto', include_paths: [], exclude_patterns: [])
     raise ArgumentError, "Unsupported language: #{language}" unless SUPPORTED_LANGUAGES.include?(language)
 
     base = resolve_base(root_dir, source_path)
@@ -176,22 +195,65 @@ module ParityInventory
 
     parser = effective_parser(language, parser_mode, root_dir)
     if parser_mode == 'tree-sitter' && parser != 'tree-sitter'
-      warn "tree-sitter parser unavailable for #{language}; falling back to regex"
+      raise RuntimeError, "tree-sitter parser unavailable for #{language}; install chiasmus-discover or use --parser regex"
     end
 
-    items = if parser == 'tree-sitter'
-              result = discover_with_crystal_discovery(base, language, root_dir: root_dir)
-              result
-            else
-              discover_with_regex(base, language)
-            end
+    items, backend, discover_bin = if parser == 'tree-sitter'
+                                      discover_with_crystal_discovery(base, language, root_dir: root_dir, fallback: parser_mode != 'tree-sitter')
+                                    else
+                                      [discover_with_regex(base, language), 'regex', nil]
+                                    end
+    warn "PARITY_DISCOVERY_BACKEND=#{backend}"
+    warn "PARITY_DISCOVERY_BINARY=#{discover_bin}" if discover_bin
 
-    [base, dedupe_items(items)]
+    filtered_items = filter_scope_items(
+      dedupe_items(items),
+      include_paths: include_paths,
+      exclude_patterns: exclude_patterns
+    )
+    @last_discovery_report = {
+      'base' => base.to_s,
+      'parser_requested' => parser_mode,
+      'backend' => backend,
+      'binary' => discover_bin,
+      'include_paths' => normalized_scope_values(include_paths, '.'),
+      'exclude_patterns' => normalized_scope_values(exclude_patterns, nil),
+    }
+    warn "PARITY_DISCOVERY_SCOPE=#{JSON.generate(@last_discovery_report.slice('include_paths', 'exclude_patterns'))}"
+
+    [base, filtered_items]
+  end
+
+  def last_discovery_report
+    @last_discovery_report || {}
+  end
+
+  def write_discovery_metadata(manifest_path)
+    File.write("#{manifest_path}.metadata.json", JSON.pretty_generate(last_discovery_report) + "\n")
+  end
+
+  def filter_scope_items(items, include_paths:, exclude_patterns:)
+    includes = normalized_scope_values(include_paths, '.')
+    excludes = normalized_scope_values(exclude_patterns, nil)
+    items.select do |item|
+      file = item.file.tr('\\', '/')
+      included = includes.any? { |path| path == '.' || file == path || file.start_with?("#{path}/") }
+      excluded = excludes.any? { |pattern| File.fnmatch?(pattern, file, File::FNM_PATHNAME | File::FNM_EXTGLOB) }
+      included && !excluded
+    end
+  end
+
+  def normalized_scope_values(values, default)
+    values = Array(values).flat_map { |value| value.to_s.split(',') }
+                  .map { |value| value.strip.tr('\\', '/').sub(%r{\A\./}, '').sub(%r{/\z}, '') }
+                  .reject(&:empty?)
+    values = [default] if values.empty? && default
+    values.uniq.sort
   end
 
   def effective_parser(language, parser_mode, root_dir = nil)
     mode = parser_mode.to_s
-    treesitter_available = detect_treesitter(language, root_dir) || !discover_crystal_binary(root_dir).nil?
+    treesitter_available = !discover_crystal_binary(root_dir).nil?
     return 'regex' if mode.empty? || mode == 'regex'
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'auto'
@@ -304,6 +366,8 @@ module ParityInventory
     case language
     when 'go'
       rel.end_with?('_test.go')
+    when 'rust'
+      rel.end_with?('_test.rs') || rel.start_with?('test/', 'tests/') || rel.include?('/test/') || rel.include?('/tests/')
     when 'crystal'
       rel.end_with?('_spec.cr') || rel.start_with?('spec/')
     when 'java'
