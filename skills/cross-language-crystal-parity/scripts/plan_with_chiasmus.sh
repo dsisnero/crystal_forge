@@ -17,7 +17,7 @@ if [[ -z "${SOURCE_PATH}" ]]; then
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
 ENTRY_POINT_ARGS=()
 ENTRY_POINTS_KEY=""

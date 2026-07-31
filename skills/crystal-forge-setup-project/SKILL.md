@@ -60,6 +60,15 @@ Create concise starter docs only for missing files:
 - `docs/testing.md`
 - `docs/pr-workflow.md`
 
+Rules for content placement:
+
+- **`README.md`** describes what the project is and how to use it. It must
+  include links to all `docs/*` files. Do not put porting notes, upstream
+  references, or implementation history in README — that goes in
+  `docs/development.md`.
+- **`docs/development.md`** is where porting/upstream notes, project structure,
+  and workflow details live — referenced from README via a link.
+
 ### 5. Normalize repo-local temp and ignore rules
 
 - Keep generated scratch data under `./temp`.

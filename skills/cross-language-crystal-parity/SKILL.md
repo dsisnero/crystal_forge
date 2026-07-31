@@ -6,8 +6,12 @@ description: Track source-to-Crystal parity with reproducible manifests and a cu
 # Cross-Language Crystal Parity
 
 Use one workflow for parity planning, drift checks, and signoff across supported
-upstream languages: `go`, `rust`, `crystal`, `java`, `csharp`, `ruby`, and
-`typescript`/`javascript`.
+upstream languages: `go`, `rust`, `crystal`, `java`, `csharp`, `ruby`,
+`typescript`/`javascript`, and `python`. The workflow is grammar-driven: any
+language with an available tree-sitter grammar (bundled in `chiasmus-discover`,
+`CHIASMUS_GRAMMAR_DIR`, or a repo-local `./grammars`) works without editing the
+skill. The hard-coded language lists are only the regex fallback for languages
+without a grammar.
 
 Read `references/usage-guidelines.md` or `references/invariants.md` only when
 you need the extra detail.

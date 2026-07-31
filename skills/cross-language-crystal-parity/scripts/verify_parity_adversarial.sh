@@ -7,7 +7,7 @@ LANGUAGE="${3:-${PORT_LANGUAGE:-go}}"
 CRYSTAL_SPEC_CMD="${4:-}"
 UPSTREAM_TEST_CMD="${5:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
 SOURCE_PATH="$(resolve_port_source_path "${ROOT_DIR}" "${SOURCE_PATH}")"
 ENSURE_SCRIPT="${ENSURE_PARITY_PLAN_SCRIPT:-${SCRIPT_DIR}/ensure_parity_plan.sh}"

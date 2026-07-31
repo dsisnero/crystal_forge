@@ -12,7 +12,7 @@ ENTRY_POINTS="${PORT_ENTRY_POINTS:-}"
 COMPLETE_QUERY="${PORT_COMPLETE_QUERY:-status}"
 COMPLETE_FORMAT="${PORT_COMPLETE_FORMAT:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
 ENTRY_POINT_ARGS=()
 EXTRA_COMPLETE_ARGS=()

@@ -8,7 +8,12 @@ require 'rbconfig'
 require 'set'
 
 module ParityInventory
-  SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript csharp].freeze
+  # Languages with a regex extractor (used as the no-grammar fallback).
+  SUPPORTED_LANGUAGES = %w[go rust crystal java ruby typescript csharp python].freeze
+  # Default curated kinds for any language that lacks an explicit entry below.
+  # Broad enough to cover definitional symbols across grammars; per-language
+  # entries can narrow it.
+  DEFAULT_CURATED_KINDS = Set.new(%w[class const ctor enum func function interface method module record struct test trait type]).freeze
   CURATED_KINDS = {
     'go' => Set.new(%w[const struct type func method test]),
     'rust' => Set.new(%w[const struct enum trait type func method test]),
@@ -16,7 +21,8 @@ module ParityInventory
     'java' => Set.new(%w[class interface enum record const ctor func method test]),
     'ruby' => Set.new(%w[class module const func method test]),
     'typescript' => Set.new(%w[class const function interface method test type]),
-    'csharp' => Set.new(%w[class interface enum record const ctor func method test])
+    'csharp' => Set.new(%w[class interface enum record const ctor func method test]),
+    'python' => Set.new(%w[class const function method test])
   }.freeze
 
   Item = Struct.new(:id, :kind, :scope, :file, :name, keyword_init: true)
@@ -37,9 +43,7 @@ module ParityInventory
   end
 
   def detect_treesitter(language, root_dir = nil)
-    return false unless SUPPORTED_LANGUAGES.include?(language)
-
-    return true unless discover_crystal_binary(root_dir).nil?
+    return true if grammar_available?(language, root_dir)
 
     begin
       require 'tree_sitter'
@@ -124,6 +128,28 @@ module ParityInventory
       crystal_discovery_source_fallback(root_dir)
   end
 
+  # True when a tree-sitter grammar for `language` is discoverable via
+  # CHIASMUS_GRAMMAR_DIR, the bundled grammars next to the discovery binary,
+  # or a repo-local ./grammars directory. This is what makes any grammar-backed
+  # language work without editing the supported-language lists.
+  def grammar_available?(language, root_dir = nil)
+    grammar_dirs(root_dir).any? do |dir|
+      File.directory?(File.join(dir, "tree-sitter-#{language}"))
+    end
+  end
+
+  def grammar_dirs(root_dir = nil)
+    dirs = []
+    if (env = ENV['CHIASMUS_GRAMMAR_DIR']) && !env.empty?
+      dirs << env
+    end
+    if (bin = discover_crystal_binary(root_dir))
+      dirs << File.join(File.dirname(bin), 'grammars')
+    end
+    dirs << File.join(root_dir.to_s, 'grammars') if root_dir
+    dirs.uniq
+  end
+
   def crystal_discovery_candidates(root_dir = nil)
     candidates = []
 
@@ -189,10 +215,12 @@ module ParityInventory
   end
 
   def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto', include_paths: [], exclude_patterns: [])
-    raise ArgumentError, "Unsupported language: #{language}" unless SUPPORTED_LANGUAGES.include?(language)
-
     base = resolve_base(root_dir, source_path)
     raise ArgumentError, "Source directory does not exist: #{base}" unless base.directory?
+
+    unless grammar_available?(language, root_dir) || SUPPORTED_LANGUAGES.include?(language)
+      raise ArgumentError, "Unsupported language: #{language} (no tree-sitter grammar and no regex extractor)"
+    end
 
     parser = effective_parser(language, parser_mode, root_dir)
     if parser_mode == 'tree-sitter' && parser != 'tree-sitter'
@@ -254,7 +282,7 @@ module ParityInventory
 
   def effective_parser(language, parser_mode, root_dir = nil)
     mode = parser_mode.to_s
-    treesitter_available = !discover_crystal_binary(root_dir).nil?
+    treesitter_available = grammar_available?(language, root_dir)
     return 'regex' if mode.empty? || mode == 'regex'
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'auto'
@@ -281,9 +309,7 @@ module ParityInventory
   end
 
   def curated_inventory_items(items, language:)
-    allowed = CURATED_KINDS.fetch(language) do
-      raise ArgumentError, "Unsupported language for curated inventory: #{language}"
-    end
+    allowed = CURATED_KINDS.fetch(language, DEFAULT_CURATED_KINDS)
 
     dedupe_items(items.select { |item| allowed.include?(item.kind) })
   end
@@ -299,7 +325,7 @@ module ParityInventory
 
   def filter_items_for_manifest(items, manifest_path:, language:)
     tracked_kinds = manifest_kinds(manifest_path)
-    tracked_kinds = CURATED_KINDS.fetch(language) if tracked_kinds.empty?
+    tracked_kinds = CURATED_KINDS.fetch(language, DEFAULT_CURATED_KINDS) if tracked_kinds.empty?
     dedupe_items(items.select { |item| tracked_kinds.include?(item.kind) })
   end
 
@@ -317,6 +343,7 @@ module ParityInventory
                   when 'java' then extract_java(rel, content)
                   when 'ruby' then extract_ruby(rel, content)
                   when 'typescript' then extract_typescript(rel, content)
+                  when 'python' then extract_python(rel, content)
                   else [[], []]
                   end
       source_items.concat(src) unless test_file_for_language?(language, rel)
@@ -347,6 +374,8 @@ module ParityInventory
         rel.end_with?('.rb')
       when 'typescript'
         rel.end_with?('.ts', '.js')
+      when 'python'
+        rel.end_with?('.py')
       else
         false
       end
@@ -377,8 +406,10 @@ module ParityInventory
       rel.end_with?('_spec.rb', '_test.rb') || rel.start_with?('spec/') || rel.start_with?('test/')
     when 'typescript'
       rel.end_with?('.test.ts', '.spec.ts', '.test.js', '.spec.js') || rel.include?('/test/') || rel.include?('/tests/')
+    when 'python'
+      rel.end_with?('_test.py') || rel.match?(/test_.*\.py\z/) || rel.include?('/test/') || rel.include?('/tests/')
     else
-      false
+      rel.include?('/test/') || rel.include?('/tests/') || rel.include?('/spec/') || rel.match?(/_test\b|_spec\b/)
     end
   end
 
@@ -692,6 +723,43 @@ module ParityInventory
 
       # End of class
       namespace.pop if stripped == '}' && !namespace.empty?
+    end
+
+    [source, tests]
+  end
+
+  # Low-fidelity regex fallback for Python (tree-sitter is preferred).
+  def extract_python(rel, text)
+    source = []
+    tests = []
+
+    current_class = nil
+
+    text.each_line do |line|
+      stripped = line.strip
+      next if stripped.empty? || stripped.start_with?('#')
+
+      if (m = stripped.match(/\Aclass\s+([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*:/))
+        current_class = m[1]
+        source << emit_source(rel, 'class', m[1])
+        next
+      end
+
+      if (m = stripped.match(/\Adef\s+([A-Za-z_]\w*)\s*\(/))
+        name = m[1]
+        if name.start_with?('test_') || rel.include?('test')
+          tests << emit_test(rel, name)
+        elsif current_class
+          source << emit_source(rel, 'method', "#{current_class}.#{name}")
+        else
+          source << emit_source(rel, 'function', name)
+        end
+        next
+      end
+
+      if (m = stripped.match(/\A([A-Z][A-Z0-9_]*)\s*=\s*(?:[^=].*)?\z/))
+        source << emit_source(rel, 'const', m[1])
+      end
     end
 
     [source, tests]

@@ -22,7 +22,7 @@ OptionParser.new do |opts|
   opts.on("--root DIR", "Project root (default: pwd)") { |v| options[:root_dir] = v }
   opts.on("--manifest FILE", "Source parity TSV path") { |v| options[:manifest] = v }
   opts.on("--source PATH", "Source path (absolute or relative to root)") { |v| options[:source_path] = v }
-  opts.on("--language LANG", "Language: go|rust|crystal|java|ruby|typescript") { |v| options[:language] = v }
+  opts.on("--language LANG", "Language: go|rust|crystal|java|ruby|typescript|csharp|python (or any grammar-backed language)") { |v| options[:language] = v }
   opts.on("--parser MODE", "Parser: auto|regex|tree-sitter") { |v| options[:parser] = v }
   opts.on("--include PATH", "Include path relative to source (repeatable)") { |v| options[:include_paths] << v }
   opts.on("--exclude GLOB", "Exclude glob relative to source (repeatable)") { |v| options[:exclude_patterns] << v }
