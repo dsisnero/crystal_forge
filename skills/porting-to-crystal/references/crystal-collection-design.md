@@ -185,4 +185,5 @@ When porting a concurrent data structure to Crystal:
 - [ ] Count `.as(GenericType)` calls — target <15 total across all methods
 - [ ] Use explicit stacks for tree iteration, not recursive yields
 - [ ] Test compilation time early — if >10s for 10 specs, redesign
-- [ ] Verify with `-Dpreview_mt -Dexecution_context`
+- [ ] Verify under Crystal 1.21's runtime parallel execution contexts when the
+      implementation uses CPU-parallel workers

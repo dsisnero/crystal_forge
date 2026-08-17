@@ -196,8 +196,8 @@ Source: `research_patterns_spec.cr` ("Ticker"), doc `state-actors-resilience.ado
 ## Mutex-Protected State
 
 When the Actor pattern is overkill and you just need a guarded counter or map, a
-`Mutex` is the direct tool. `synchronize` is fiber-safe and works under
-`-Dpreview_mt`. Reach for this for simple shared state; reach for the Actor when the
+`Mutex` is the direct tool. `synchronize` is fiber-safe with Crystal 1.21 runtime
+parallel execution contexts. Reach for this for simple shared state; reach for the Actor when the
 update logic gets complex enough that multiple mutexes would be error-prone.
 
 ```crystal

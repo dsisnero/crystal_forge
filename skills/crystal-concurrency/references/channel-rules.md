@@ -19,7 +19,7 @@ the exception to propagate.
 **In select**: always use `receive?` for channels that may close:
 
 ```crystal
-# BROKEN under -Dpreview_mt — raises ClosedError
+# BROKEN when channels may close concurrently — raises ClosedError
 select
 when val = ch.receive    # BAD
 when done.receive        # BAD
@@ -89,12 +89,13 @@ end
 Works correctly for unbuffered channels. Has a scheduling quirk with buffered
 channel sends (off-by-one possible) — test with specs.
 
-## MT Behavior: Fan-Out Fix
+## Concurrent Fan-Out Fix
 
-Under `-Dpreview_mt`, fan-out workers close output channels simultaneously.
+When fan-out workers close output channels concurrently, a bare `select` can
+observe a closed channel.
 Bare `select when ch.receive` raises `ClosedError`.
 
-**Before (breaks under MT):**
+**Before (breaks when output channels close concurrently):**
 
 ```crystal
 8.times do

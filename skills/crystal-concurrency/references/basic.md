@@ -66,7 +66,7 @@ def fan_in(inputs : Array(Channel(Int32))) : Channel(Int32)
 end
 ```
 
-Output order across inputs is **not** guaranteed. Under `-Dpreview_mt` this
+Output order across inputs is **not** guaranteed. With runtime parallel workers, this
 `WaitGroup` + `receive?` form is required — a bare `select when ch.receive` over
 closeable inputs raises `ClosedError` on real threads.
 
