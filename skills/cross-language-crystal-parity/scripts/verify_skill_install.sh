@@ -37,6 +37,7 @@ if [[ "${PARSER}" == "tree-sitter" ]]; then
     rust) printf 'pub struct SkillProbe;\n' > "${sample_dir}/probe.rs" ;;
     go) printf 'package probe\ntype SkillProbe struct{}\n' > "${sample_dir}/probe.go" ;;
     java) printf 'public class SkillProbe {}\n' > "${sample_dir}/SkillProbe.java" ;;
+    python) printf 'class SkillProbe:\n    pass\n' > "${sample_dir}/probe.py" ;;
     *) printf '// skill probe\n' > "${sample_dir}/probe.${LANGUAGE}" ;;
   esac
   output="$("${discover_bin}" --language "${LANGUAGE}" --dir "${sample_dir}" --parser tree-sitter)"
