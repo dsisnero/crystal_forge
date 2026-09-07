@@ -37,9 +37,6 @@ you need the extra detail.
 - `scripts/check_test_parity.sh`
 - `scripts/verify_parity_adversarial.sh`
 
-Legacy `generate_go_*` and `check_go_*` wrappers remain available for older
-repos.
-
 ## Parser mode
 
 All generators accept `auto`, `regex`, or `tree-sitter` via `--parser` or
