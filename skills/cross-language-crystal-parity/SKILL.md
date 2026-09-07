@@ -58,9 +58,10 @@ Tree-sitter binary lookup order:
 4. target repo source fallback (`src/chiasmus_discover.cr`)
 5. regex fallback in `auto` mode only
 
-The `darwin-aarch64` discovery bundle includes native grammars for Java, Rust,
-C#, TypeScript, Python, Ruby, and Go. Use the language identifiers `java`,
-`rust`, `csharp`, `typescript`, `python`, `ruby`, and `go` with strict mode.
+The `darwin-aarch64` discovery bundle includes native grammars for Crystal,
+Java, Rust, C#, TypeScript/JavaScript, Python, Ruby, and Go. Use the language
+identifiers `crystal`, `java`, `rust`, `csharp`, `typescript`, `javascript`,
+`python`, `ruby`, and `go` with strict mode.
 
 ## Scope and preflight
 

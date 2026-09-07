@@ -38,6 +38,11 @@ if [[ "${PARSER}" == "tree-sitter" ]]; then
     go) printf 'package probe\ntype SkillProbe struct{}\n' > "${sample_dir}/probe.go" ;;
     java) printf 'public class SkillProbe {}\n' > "${sample_dir}/SkillProbe.java" ;;
     python) printf 'class SkillProbe:\n    pass\n' > "${sample_dir}/probe.py" ;;
+    ruby) printf 'class SkillProbe\nend\n' > "${sample_dir}/probe.rb" ;;
+    csharp) printf 'public class SkillProbe {}\n' > "${sample_dir}/SkillProbe.cs" ;;
+    typescript) printf 'export class SkillProbe {}\n' > "${sample_dir}/probe.ts" ;;
+    javascript) printf 'export class SkillProbe {}\n' > "${sample_dir}/probe.js" ;;
+    crystal) printf 'class SkillProbe\nend\n' > "${sample_dir}/probe.cr" ;;
     *) printf '// skill probe\n' > "${sample_dir}/probe.${LANGUAGE}" ;;
   esac
   output="$("${discover_bin}" --language "${LANGUAGE}" --dir "${sample_dir}" --parser tree-sitter)"
