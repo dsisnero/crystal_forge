@@ -43,7 +43,8 @@ base, items = ParityInventory.discover_items(
   language: language,
   parser_mode: options[:parser],
   include_paths: options[:include_paths],
-  exclude_patterns: options[:exclude_patterns]
+  exclude_patterns: options[:exclude_patterns],
+  include_rust_inline_tests: language == 'rust'
 )
 
 test_items = items.select { |item| item.scope == "test" }

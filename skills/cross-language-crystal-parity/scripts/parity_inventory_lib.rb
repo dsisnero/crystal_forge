@@ -214,7 +214,7 @@ module ParityInventory
     RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/i
   end
 
-  def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto', include_paths: [], exclude_patterns: [])
+  def discover_items(root_dir:, source_path:, language:, parser_mode: 'auto', include_paths: [], exclude_patterns: [], include_rust_inline_tests: false)
     base = resolve_base(root_dir, source_path)
     raise ArgumentError, "Source directory does not exist: #{base}" unless base.directory?
 
@@ -232,6 +232,9 @@ module ParityInventory
                                     else
                                       [discover_with_regex(base, language), 'regex', nil]
                                     end
+    if language == 'rust' && include_rust_inline_tests && backend == 'chiasmus-tree-sitter'
+      items = merge_rust_inline_tests(base, items)
+    end
     warn "PARITY_DISCOVERY_BACKEND=#{backend}"
     warn "PARITY_DISCOVERY_BINARY=#{discover_bin}" if discover_bin
 
@@ -351,6 +354,21 @@ module ParityInventory
     end
 
     source_items + test_items
+  end
+
+  # Older bundled discovery binaries report annotated Rust functions as source
+  # functions. Supplement only test-inventory runs, preserving source manifests.
+  def merge_rust_inline_tests(base, items)
+    existing = items.select { |item| item.scope == 'test' }
+    files_for_language(base, 'rust').each do |path, rel|
+      _, tests = extract_rust(rel, read_utf8_text(path))
+      tests.each do |test|
+        next if existing.any? { |item| item.file == rel && (item.name == test.name || item.name.end_with?("::#{test.name}")) }
+
+        items << test
+      end
+    end
+    items
   end
 
   def files_for_language(base, language)
@@ -499,8 +517,8 @@ module ParityInventory
         source << emit_source(rel, 'method', "#{pub_impl}.#{m[1]}")
       end
 
-      pending_test_attr = true if stripped.start_with?('#[test]')
-      if pending_test_attr && (m = stripped.match(/^fn\s+([a-zA-Z_][A-Za-z0-9_]*)\s*\(/))
+      pending_test_attr = true if stripped.match?(/^#\[\s*(?:[A-Za-z_][A-Za-z_0-9]*::)*test\s*\]/)
+      if pending_test_attr && (m = stripped.match(/^(?:(?:pub(?:\([^)]*\))?|async|unsafe)\s+)*fn\s+([a-zA-Z_][A-Za-z0-9_]*)\s*\(/))
         tests << emit_test(rel, m[1])
         pending_test_attr = false
       end

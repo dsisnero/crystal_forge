@@ -38,7 +38,8 @@ _, items = ParityInventory.discover_items(
   language: language,
   parser_mode: options[:parser],
   include_paths: options[:include_paths],
-  exclude_patterns: options[:exclude_patterns]
+  exclude_patterns: options[:exclude_patterns],
+  include_rust_inline_tests: language == 'rust'
 )
 
 discovered_ids = ParityInventory.filter_items_for_manifest(
