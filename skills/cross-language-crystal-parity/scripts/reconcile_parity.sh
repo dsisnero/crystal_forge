@@ -14,7 +14,7 @@
 #   reconcile_parity.sh . vendor/pdfbox java src plans/parity_rules.yml
 #
 # Environment overrides:
-#   CHIASMUS_FACTS_BIN, CHIASMUS_PARITY_BIN  tool binaries
+#   CHIASMUS_TOOLCHAIN_DIR                   complete verified toolchain
 #   PORT_MAP_RULES                           default rules file
 #   PORT_RECONCILE_OUT                       output directory
 #   PORT_INVENTORY                           curated ledger path
@@ -33,50 +33,24 @@ SKILL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUT_DIR="${PORT_RECONCILE_OUT:-${ROOT_DIR}/plans/generated/parity/${SOURCE_LANGUAGE}}"
 LEDGER="${PORT_INVENTORY:-${ROOT_DIR}/plans/inventory/${SOURCE_LANGUAGE}_port_inventory.tsv}"
 
-platform_key() {
-  local os cpu
-  case "$(uname -s)" in
-    Darwin) os="darwin" ;;
-    Linux) os="linux" ;;
-    MINGW*|MSYS*|CYGWIN*) os="windows" ;;
-    *) os="$(uname -s | tr '[:upper:]' '[:lower:]')" ;;
-  esac
-  case "$(uname -m)" in
-    arm64|aarch64) cpu="aarch64" ;;
-    x86_64|amd64) cpu="x86_64" ;;
-    *) cpu="$(uname -m | tr '[:upper:]' '[:lower:]')" ;;
-  esac
-  printf '%s-%s\n' "$os" "$cpu"
-}
-
-resolve_tool() {
-  local env_var="$1" tool="$2" override candidate
-  override="${!env_var:-}"
-  if [[ -n "${override}" ]]; then printf '%s\n' "${override}"; return; fi
-  for candidate in "${SKILL_DIR}/bin/$(platform_key)/${tool}" "${SKILL_DIR}/bin/${tool}" "${ROOT_DIR}/bin/${tool}"; do
-    if [[ -x "${candidate}" ]]; then printf '%s\n' "${candidate}"; return; fi
-  done
-  if command -v "${tool}" >/dev/null 2>&1; then command -v "${tool}"; return; fi
-  echo "unable to locate ${tool}; set ${env_var} or build ${ROOT_DIR}/bin/${tool}" >&2
-  exit 1
-}
-
 resolve_path() {
   local value="$1"
   if [[ "${value}" = /* ]]; then printf '%s\n' "${value}"; else printf '%s\n' "${ROOT_DIR}/${value}"; fi
 }
 
-FACTS_BIN="$(resolve_tool CHIASMUS_FACTS_BIN chiasmus-facts)"
-PARITY_BIN="$(resolve_tool CHIASMUS_PARITY_BIN chiasmus-parity)"
+TOOLCHAIN="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability facts.typed-declarations --require-capability parity.bundle)"
+FACTS_BIN="${TOOLCHAIN}/chiasmus-facts"
+PARITY_BIN="${TOOLCHAIN}/chiasmus-parity"
+export CHIASMUS_GRAMMAR_DIR="${TOOLCHAIN}/grammars"
 CACHE_DIR="${PORT_RECONCILE_CACHE_DIR:-${CHIASMUS_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/chiasmus}}"
 PARITY_HELP="$("${PARITY_BIN}" --help 2>&1)"
 FACTS_HELP="$("${FACTS_BIN}" --help 2>&1)"
 if [[ "${PARITY_HELP}" != *"maps-prolog"* || "${PARITY_HELP}" != *"surfaces"* ]]; then
-  echo "${PARITY_BIN} lacks reconciliation formats; sync a compatible Chiasmus release or set CHIASMUS_PARITY_BIN." >&2
+  echo "${PARITY_BIN} lacks reconciliation formats; install a compatible complete Chiasmus release." >&2
   exit 1
 fi
 if [[ "${FACTS_HELP}" != *"--cache-dir"* ]]; then
-  echo "${FACTS_BIN} lacks the persistent cache option; sync a compatible Chiasmus release or set CHIASMUS_FACTS_BIN." >&2
+  echo "${FACTS_BIN} lacks the persistent cache option; install a compatible complete Chiasmus release." >&2
   exit 1
 fi
 
@@ -100,14 +74,17 @@ TARGET_FACTS="${OUT_DIR}/target_facts.pl"
 SOURCE_DECLARATIONS="${OUT_DIR}/source-declarations.jsonl"
 TARGET_DECLARATIONS="${OUT_DIR}/target-declarations.jsonl"
 TYPED_SIDECARS=false
-if [[ "${FACTS_HELP}" == *"--declarations-out"* &&
-      "${PARITY_HELP}" == *"--source-declarations"* &&
-      "${PARITY_HELP}" == *"--target-declarations"* &&
-      "${PARITY_HELP}" == *"--bundle-dir"* ]]; then
-  case "${SOURCE_LANGUAGE}" in
-    java|go|crystal|rust) TYPED_SIDECARS=true ;;
-  esac
-fi
+case "${SOURCE_LANGUAGE}" in
+  java|go|crystal|rust)
+    if [[ "${FACTS_HELP}" != *"--declarations-out"* ||
+          "${PARITY_HELP}" != *"--source-declarations"* ||
+          "${PARITY_HELP}" != *"--target-declarations"* ||
+          "${PARITY_HELP}" != *"--bundle-dir"* ]]; then
+      echo "Verified toolchain advertises typed reconciliation but its CLI flags are missing." >&2
+      exit 1
+    fi
+    TYPED_SIDECARS=true ;;
+esac
 
 SOURCE_FACT_ARGS=()
 TARGET_FACT_ARGS=()

@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'digest'
+require 'json'
 require 'minitest/autorun'
 require 'open3'
+require 'rbconfig'
 require 'tmpdir'
 
 class ReconcileParitySidecarsTest < Minitest::Test
@@ -27,24 +30,19 @@ class ReconcileParitySidecarsTest < Minitest::Test
     end
   end
 
-  def test_mixed_version_binaries_keep_legacy_reconciliation
+  def test_mixed_version_binaries_are_rejected
     with_fixture do |root, repo, out, facts_log, parity_log|
       stdout, stderr, status = run_wrapper(root, repo, out, facts_log, parity_log,
                                            facts_typed: true, parity_typed: false)
-      assert status.success?, "#{stdout}\n#{stderr}"
-      refute_includes File.read(facts_log), '--declarations-out'
-      refute_includes File.read(parity_log), '--source-declarations'
-      refute File.exist?(File.join(out, 'source-declarations.jsonl'))
+      refute status.success?, "#{stdout}\n#{stderr}"
     end
   end
 
-  def test_older_facts_binary_keeps_legacy_reconciliation
+  def test_older_facts_binary_is_rejected
     with_fixture do |root, repo, out, facts_log, parity_log|
       stdout, stderr, status = run_wrapper(root, repo, out, facts_log, parity_log,
                                            facts_typed: false, parity_typed: true)
-      assert status.success?, "#{stdout}\n#{stderr}"
-      refute_includes File.read(facts_log), '--declarations-out'
-      refute_includes File.read(parity_log), '--target-declarations'
+      refute status.success?, "#{stdout}\n#{stderr}"
     end
   end
 
@@ -75,8 +73,10 @@ class ReconcileParitySidecarsTest < Minitest::Test
   end
 
   def run_wrapper(root, repo, out, facts_log, parity_log, facts_typed:, parity_typed:, language: 'java')
-    facts_bin = File.join(root, 'facts')
-    parity_bin = File.join(root, 'parity')
+    toolchain = File.join(root, 'toolchain')
+    FileUtils.mkdir_p(File.join(toolchain, 'grammars'))
+    facts_bin = File.join(toolchain, 'chiasmus-facts')
+    parity_bin = File.join(toolchain, 'chiasmus-parity')
     File.write(facts_bin, <<~SH)
       #!/bin/sh
       if [ "$1" = "--help" ]; then
@@ -100,9 +100,24 @@ class ReconcileParitySidecarsTest < Minitest::Test
     SH
     File.chmod(0o755, facts_bin)
     File.chmod(0o755, parity_bin)
+    %w[discover plan complete].each do |name|
+      path = File.join(toolchain, "chiasmus-#{name}")
+      File.write(path, "#!/bin/sh\nexit 0\n")
+      File.chmod(0o755, path)
+    end
+    os = RbConfig::CONFIG['host_os'] =~ /darwin/ ? 'darwin' : 'linux'
+    extension = os == 'darwin' ? 'dylib' : 'so'
+    %w[java go crystal].each { |name| File.write(File.join(toolchain, 'grammars', "libtree-sitter-#{name}.#{extension}"), name) }
+    cpu = `uname -m`.strip =~ /arm64|aarch64/ ? 'aarch64' : 'x86_64'
+    platform = "#{os}-#{cpu}"
+    files = Dir.glob(File.join(toolchain, '**', '*')).select { |path| File.file?(path) }.to_h do |path|
+      [path.delete_prefix("#{toolchain}/"), { sha256: Digest::SHA256.file(path).hexdigest, size: File.size(path) }]
+    end
+    manifest = { manifest_version: 1, platform: platform, build_id: 'fixture', files: files,
+                 capabilities: { facts: ['typed-declarations'], parity: ['bundle'] } }
+    File.write(File.join(toolchain, 'toolchain-manifest.json'), JSON.generate(manifest))
     env = {
-      'CHIASMUS_FACTS_BIN' => facts_bin,
-      'CHIASMUS_PARITY_BIN' => parity_bin,
+      'CHIASMUS_TOOLCHAIN_DIR' => toolchain,
       'PORT_RECONCILE_OUT' => out,
       'PORT_RECONCILE_CACHE_DIR' => File.join(root, 'cache'),
       'PORT_INVENTORY' => File.join(root, 'missing-inventory.tsv'),

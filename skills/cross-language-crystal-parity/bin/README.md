@@ -21,9 +21,6 @@ Populate this directory from a tagged `dsisnero/chiasmus.cr` release with:
 ./scripts/sync_chiasmus_release_binaries.sh <tag>
 ```
 
-The parity scripts will prefer:
-
-1. `CHIASMUS_DISCOVER_BIN`
-2. bundled platform binary under this directory
-3. target repo `bin/chiasmus-discover`
-4. target repo source fallback
+These files are legacy/manual bundles. The parity scripts now resolve one
+manifest-verified release toolchain automatically and do not select binaries
+from this directory. See `../references/toolchain-resolution.md`.

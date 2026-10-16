@@ -22,6 +22,14 @@ export PORT_SCOPE_EXCLUDE="${SCOPE_EXCLUDE}"
 
 SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/port_path_lib.sh"
+if [[ "${PARSER}" != "regex" ]]; then
+  if toolchain="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability discover.tree-sitter)"; then
+    export CHIASMUS_TOOLCHAIN_DIR="${toolchain}"
+    export CHIASMUS_GRAMMAR_DIR="${toolchain}/grammars"
+  elif [[ "${PARSER}" == "tree-sitter" ]]; then
+    exit 2
+  fi
+fi
 SOURCE_PATH="$(resolve_port_source_path "${ROOT_DIR}" "${SOURCE_PATH}")"
 INV_DIR="${ROOT_DIR}/plans/inventory"
 PORT_MANIFEST="${INV_DIR}/${LANGUAGE}_port_inventory.tsv"

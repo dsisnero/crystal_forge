@@ -3,6 +3,7 @@
 
 require 'fileutils'
 require 'json'
+require 'open3'
 require 'pathname'
 require 'rbconfig'
 require 'set'
@@ -124,8 +125,7 @@ module ParityInventory
   end
 
   def discover_crystal_binary(root_dir = nil)
-    crystal_discovery_candidates(root_dir).find { |path| File.executable?(path) } ||
-      crystal_discovery_source_fallback(root_dir)
+    crystal_discovery_candidates(root_dir).find { |path| File.executable?(path) }
   end
 
   # True when a tree-sitter grammar for `language` is discoverable via
@@ -151,28 +151,17 @@ module ParityInventory
   end
 
   def crystal_discovery_candidates(root_dir = nil)
-    candidates = []
+    _ = root_dir
+    key = [ENV['CHIASMUS_TOOLCHAIN_DIR'], ENV['CHIASMUS_RELEASE_INDEX'], ENV['CHIASMUS_TOOLCHAIN_OFFLINE']]
+    return @resolved_discovery_candidates if @resolved_discovery_key == key
 
-    env_override = ENV['CHIASMUS_DISCOVER_BIN']
-    candidates << env_override if env_override && !env_override.strip.empty?
+    script = File.join(__dir__, 'resolve_toolchain.py')
+    stdout, _stderr, status = Open3.capture3('python3', script, '--require-capability', 'discover.tree-sitter')
+    @resolved_discovery_key = key
+    return @resolved_discovery_candidates = [] unless status.success?
 
-    script_root = File.expand_path('..', __dir__)
-    skill_bin = File.join(script_root, 'bin')
-    executable_names = windows? ? %w[chiasmus-discover.exe chiasmus_discover.exe] : %w[chiasmus-discover chiasmus_discover]
-
-    platform_dir = bundled_platform_dir(script_root)
-    executable_names.each do |name|
-      candidates << File.join(platform_dir, name)
-      candidates << File.join(skill_bin, name)
-    end
-
-    if root_dir
-      executable_names.each do |name|
-        candidates << File.join(root_dir, 'bin', name)
-      end
-    end
-
-    candidates.uniq
+    executable = windows? ? 'chiasmus-discover.exe' : 'chiasmus-discover'
+    @resolved_discovery_candidates = [File.join(stdout.strip, executable)]
   end
 
   def crystal_discovery_source_fallback(root_dir = nil)

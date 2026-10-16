@@ -17,47 +17,6 @@ SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENTRY_POINT_ARGS=()
 EXTRA_COMPLETE_ARGS=()
 
-platform_key() {
-  local os
-  local cpu
-
-  case "$(uname -s)" in
-    Darwin) os="darwin" ;;
-    Linux) os="linux" ;;
-    MINGW*|MSYS*|CYGWIN*) os="windows" ;;
-    *) os="$(uname -s | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-')" ;;
-  esac
-
-  case "$(uname -m)" in
-    arm64|aarch64) cpu="aarch64" ;;
-    x86_64|amd64) cpu="x86_64" ;;
-    *) cpu="$(uname -m | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-')" ;;
-  esac
-
-  printf '%s-%s\n' "${os}" "${cpu}"
-}
-
-bundled_tool_path() {
-  local tool_name="$1"
-  local skill_root
-  local platform_dir
-
-  skill_root="$(cd "${SCRIPT_DIR}/.." && pwd)"
-  platform_dir="${skill_root}/bin/$(platform_key)"
-
-  if [[ -x "${platform_dir}/${tool_name}" ]]; then
-    printf '%s\n' "${platform_dir}/${tool_name}"
-    return 0
-  fi
-
-  if [[ -x "${skill_root}/bin/${tool_name}" ]]; then
-    printf '%s\n' "${skill_root}/bin/${tool_name}"
-    return 0
-  fi
-
-  return 1
-}
-
 if (( $# > 5 )); then
   EXTRA_COMPLETE_ARGS=("${@:6}")
 fi
@@ -90,40 +49,8 @@ run_tool() {
   local env_var="$1"
   local tool_name="$2"
   shift 2
-
-  local override="${!env_var:-}"
-  if [[ -n "${override}" ]]; then
-    "${override}" "$@"
-    return
-  fi
-
-  local bundled_bin
-  if bundled_bin="$(bundled_tool_path "${tool_name}")"; then
-    "${bundled_bin}" "$@"
-    return
-  fi
-
-  local bin_path="${ROOT_DIR}/bin/${tool_name}"
-  if [[ -x "${bin_path}" ]]; then
-    "${bin_path}" "$@"
-    return
-  fi
-
-  local path_bin
-  path_bin="$(command -v "${tool_name}" 2>/dev/null || true)"
-  if [[ -n "${path_bin}" && -x "${path_bin}" ]]; then
-    "${path_bin}" "$@"
-    return
-  fi
-
-  local source_file="${ROOT_DIR}/src/${tool_name//-/_}.cr"
-  if [[ -f "${source_file}" ]]; then
-    crystal run "${source_file}" -- "$@"
-    return
-  fi
-
-  echo "unable to locate ${tool_name}; set ${env_var} or build ${bin_path}" >&2
-  exit 1
+  : "${env_var}"
+  "${TOOLCHAIN}/${tool_name}" "$@"
 }
 
 build_entry_point_args() {
@@ -149,6 +76,8 @@ build_entry_point_args() {
 
 SOURCE_DIR="$(resolve_port_source_path "${ROOT_DIR}" "${SOURCE_PATH}")"
 CRYSTAL_DIR="$(resolve_path "${ROOT_DIR}" "${CRYSTAL_FACTS_DIR}")"
+TOOLCHAIN="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability facts.typed-declarations)"
+export CHIASMUS_GRAMMAR_DIR="${TOOLCHAIN}/grammars"
 
 if [[ ! -d "${SOURCE_DIR}" ]]; then
   echo "source directory not found: ${SOURCE_DIR}" >&2

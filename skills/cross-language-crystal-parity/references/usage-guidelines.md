@@ -16,22 +16,10 @@ Crystal discovery binary (`chiasmus-discover`). This provides:
 - Higher accuracy than regex for significant declarations (classes, interfaces,
   functions, methods, constants, tests).
 
-If the binary is not found, the scripts fall back to the Ruby `tree_sitter` gem
-or regex extraction with a clear "regex fallback used" warning.
-
-Binary lookup order:
-
-1. `CHIASMUS_DISCOVER_BIN`
-2. bundled skill binary under `bin/<platform>/`
-3. target repo `bin/chiasmus-discover`
-4. target repo source fallback (`src/chiasmus_discover.cr`)
-5. Ruby tree-sitter gem / regex fallback
-
-To pre-bundle release artifacts into the skill:
-
-```bash
-"${SKILL_DIR}/scripts/sync_chiasmus_release_binaries.sh <tag>
-```
+The scripts use one manifest-verified release toolchain; they never mix
+independently selected binaries. Strict tree-sitter mode fails if none is
+available. Auto mode may use a lower-fidelity regex fallback with a warning.
+See `toolchain-resolution.md` for cache, offline, and local-toolchain controls.
 
 ## Safe Repeat Runs
 

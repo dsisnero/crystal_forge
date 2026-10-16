@@ -47,13 +47,13 @@ All generators accept `auto`, `regex`, or `tree-sitter` via `--parser` or
   available rather than silently producing a regex inventory
 - `regex`: lowest-fidelity fallback
 
-Tree-sitter binary lookup order:
-
-1. `CHIASMUS_DISCOVER_BIN`
-2. bundled skill binary under `bin/<platform>/`
-3. target repo `bin/chiasmus-discover`
-4. target repo source fallback (`src/chiasmus_discover.cr`)
-5. regex fallback in `auto` mode only
+Tree-sitter discovery resolves one verified Chiasmus release toolchain, then uses
+its discovery CLI and matching grammars. The resolver checks the newest stable
+compatible release on each top-level run and caches complete archives by platform
+and tag. `CHIASMUS_TOOLCHAIN_DIR` selects a complete, manifest-verified local
+toolchain; `CHIASMUS_TOOLCHAIN_OFFLINE=1` uses the last verified cached release.
+Individual `CHIASMUS_*_BIN` overrides and stale bundled/repo binaries are not
+accepted. See `references/toolchain-resolution.md` for details.
 
 The `darwin-aarch64` discovery bundle includes native grammars for Crystal,
 Java, Rust, C#, TypeScript/JavaScript, Python, Ruby, and Go. Use the language
@@ -89,15 +89,9 @@ SKILL_DIR=/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crys
 "${SKILL_DIR}/scripts/ensure_parity_plan.sh" /path/to/repo <source_path> <language> auto 0
 ```
 
-If you want the skill to carry its own Chiasmus binaries, sync a tagged release
-from `dsisnero/chiasmus.cr` into the skill bundle first:
-
-```bash
-"${SKILL_DIR}/scripts/sync_chiasmus_release_binaries.sh" <tag>
-```
-
-This populates `bin/<platform>/` with `chiasmus-discover`,
-`chiasmus-parity`, and the matching `grammars/` directory.
+Release archives are resolved automatically. For an air-gapped installation,
+set `CHIASMUS_TOOLCHAIN_DIR` to an unpacked complete release directory or warm
+the resolver cache before setting `CHIASMUS_TOOLCHAIN_OFFLINE=1`.
 
 ## Standard flow
 

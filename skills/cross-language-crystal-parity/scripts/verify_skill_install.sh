@@ -11,19 +11,17 @@ for wrapper in "${SCRIPT_DIR}"/*.sh; do
   [[ -x "${wrapper}" ]] || { echo "Parity skill wrapper is not executable: ${wrapper}" >&2; exit 2; }
 done
 
-discover_bin="${CHIASMUS_DISCOVER_BIN:-}"
+discover_bin=""
+if [[ "${PARSER}" != "regex" ]]; then
+  if toolchain="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability discover.tree-sitter)"; then
+    discover_bin="${toolchain}/chiasmus-discover"
+    export CHIASMUS_TOOLCHAIN_DIR="${toolchain}"
+    export CHIASMUS_GRAMMAR_DIR="${toolchain}/grammars"
+  elif [[ "${PARSER}" == "tree-sitter" ]]; then
+    exit 2
+  fi
+fi
 if [[ -z "${discover_bin}" ]]; then
-  discover_bin="$(find "${SKILL_DIR}/bin" -maxdepth 2 -type f \( -name chiasmus-discover -o -name chiasmus_discover \) -perm -u+x -print -quit 2>/dev/null || true)"
-fi
-if [[ ! -x "${discover_bin}" ]]; then
-  discover_bin="${ROOT_DIR}/bin/chiasmus-discover"
-fi
-if [[ "${PARSER}" == "tree-sitter" && ! -x "${discover_bin}" ]]; then
-  echo "Chiasmus discovery binary not found; set CHIASMUS_DISCOVER_BIN or sync a skill release bundle." >&2
-  exit 2
-fi
-
-if [[ ! -x "${discover_bin}" ]]; then
   echo "PARITY_SKILL_VERIFIED=1"
   echo "PARITY_DISCOVERY_BACKEND=regex"
   echo "PARITY_DISCOVERY_BINARY=unavailable"
