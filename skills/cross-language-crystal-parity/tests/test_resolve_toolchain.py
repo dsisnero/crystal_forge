@@ -56,6 +56,44 @@ class ResolveToolchainTest(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertTrue((second / "chiasmus-discover").is_file())
 
+    def test_accepts_paired_appledouble_metadata_in_archive_and_cache(self) -> None:
+        release = self.make_release("v1.2.0", "darwin-aarch64", {"discover.tree-sitter"})
+        stage = self.root / "stage-v1.2.0" / "chiasmus"
+        sidecar = stage / "._chiasmus-discover"
+        sidecar.write_bytes(self.appledouble_metadata())
+        archive = Path(release["archive"])
+        with tarfile.open(archive, "w:gz") as bundle:
+            bundle.add(stage, arcname="chiasmus")
+        release["assets"][0]["digest"] = f"sha256:{hashlib.sha256(archive.read_bytes()).hexdigest()}"
+        self.write_index([release])
+
+        resolved = self.resolve("darwin-aarch64", "discover.tree-sitter")
+        self.assertTrue((resolved / "._chiasmus-discover").is_file())
+        self.assertEqual(self.resolve("darwin-aarch64", "discover.tree-sitter", offline=True), resolved)
+
+    def test_appledouble_exception_does_not_accept_unpaired_or_malformed_extras(self) -> None:
+        self.make_release("v1.0.0", self.host_platform(), {"discover.tree-sitter"})
+        stage = self.root / "stage-v1.0.0" / "chiasmus"
+        for name, contents in (
+            ("._missing-tool", self.appledouble_metadata()),
+            ("._chiasmus-discover", b"not AppleDouble"),
+            ("unexpected.bin", b"extra"),
+        ):
+            extra = stage / name
+            extra.write_bytes(contents)
+            result = self.run_resolver(self.host_platform(), "discover.tree-sitter",
+                                       env={"CHIASMUS_TOOLCHAIN_DIR": str(stage)})
+            self.assertNotEqual(result.returncode, 0, name)
+            self.assertIn("file set mismatch", result.stderr, name)
+            extra.unlink()
+
+    @staticmethod
+    def appledouble_metadata() -> bytes:
+        # AppleDouble header, one bounded entry, and a four-byte metadata payload.
+        return (bytes.fromhex("0005160700020000") + bytes(16) + (1).to_bytes(2, "big")
+                + (9).to_bytes(4, "big") + (38).to_bytes(4, "big")
+                + (4).to_bytes(4, "big") + b"meta")
+
     def test_corrupt_archive_is_rejected_and_last_good_version_is_preserved(self) -> None:
         good = self.make_release("v1.0.0", "linux-x86_64", {"discover.tree-sitter", "facts.typed-declarations"})
         self.write_index([good])

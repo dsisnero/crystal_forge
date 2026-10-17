@@ -56,6 +56,33 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def is_appledouble_sidecar(path: Path) -> bool:
+    """Recognize filesystem metadata only when its matching entry is present."""
+    if not path.name.startswith("._") or len(path.name) <= 2 or not path.with_name(path.name[2:]).exists():
+        return False
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as stream:
+            header = stream.read(26)
+            if (len(header) != 26 or header[:8] != bytes.fromhex("0005160700020000")):
+                return False
+            entries = int.from_bytes(header[24:26], "big")
+            table_end = 26 + entries * 12
+            if entries == 0 or table_end > size:
+                return False
+            table = stream.read(entries * 12)
+        if len(table) != entries * 12:
+            return False
+        for index in range(entries):
+            offset = int.from_bytes(table[index * 12 + 4:index * 12 + 8], "big")
+            length = int.from_bytes(table[index * 12 + 8:index * 12 + 12], "big")
+            if offset < table_end or offset + length > size:
+                return False
+        return True
+    except OSError:
+        return False
+
+
 def archive_files(root: Path) -> dict[str, Path]:
     if root.is_symlink() or not root.is_dir():
         raise ResolutionError(f"toolchain directory missing or symlinked: {root}")
@@ -68,7 +95,7 @@ def archive_files(root: Path) -> dict[str, Path]:
         for name in names:
             path = Path(parent) / name
             relative = path.relative_to(root).as_posix()
-            if relative != "toolchain-manifest.json":
+            if relative != "toolchain-manifest.json" and not is_appledouble_sidecar(path):
                 files[relative] = path
     return files
 
