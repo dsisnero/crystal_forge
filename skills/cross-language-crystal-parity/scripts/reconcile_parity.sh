@@ -120,6 +120,9 @@ fi
 
 if [[ "${PARITY_HELP}" == *"--bundle-dir"* ]]; then
   echo "Reconciling maps, surfaces, and Prolog in one run..."
+  if [[ "${PARITY_HELP}" == *"--cache-dir"* ]]; then
+    PARITY_ARGS+=(--cache-dir "${CACHE_DIR}")
+  fi
   "${PARITY_BIN}" "${PARITY_ARGS[@]}" --bundle-dir "${OUT_DIR}"
 else
   echo "Bundle mode unavailable; using compatible report invocations..."

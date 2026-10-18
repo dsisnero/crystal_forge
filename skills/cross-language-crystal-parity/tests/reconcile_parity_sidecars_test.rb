@@ -56,6 +56,21 @@ class ReconcileParitySidecarsTest < Minitest::Test
     end
   end
 
+  def test_bundle_cache_flag_is_used_only_when_parity_binary_supports_it
+    with_fixture do |root, repo, out, facts_log, parity_log|
+      _stdout, stderr, status = run_wrapper(root, repo, out, facts_log, parity_log,
+                                            facts_typed: true, parity_typed: true, parity_cache: true)
+      assert status.success?, stderr
+      assert_includes File.read(parity_log), "--cache-dir #{root}/cache"
+    end
+    with_fixture do |root, repo, out, facts_log, parity_log|
+      _stdout, stderr, status = run_wrapper(root, repo, out, facts_log, parity_log,
+                                            facts_typed: true, parity_typed: true, parity_cache: false)
+      assert status.success?, stderr
+      refute_includes File.read(parity_log), '--cache-dir'
+    end
+  end
+
   private
 
   def with_fixture
@@ -72,7 +87,7 @@ class ReconcileParitySidecarsTest < Minitest::Test
     end
   end
 
-  def run_wrapper(root, repo, out, facts_log, parity_log, facts_typed:, parity_typed:, language: 'java')
+  def run_wrapper(root, repo, out, facts_log, parity_log, facts_typed:, parity_typed:, parity_cache: false, language: 'java')
     toolchain = File.join(root, 'toolchain')
     FileUtils.mkdir_p(File.join(toolchain, 'grammars'))
     facts_bin = File.join(toolchain, 'chiasmus-facts')
@@ -93,7 +108,7 @@ class ReconcileParitySidecarsTest < Minitest::Test
     File.write(parity_bin, <<~SH)
       #!/bin/sh
       if [ "$1" = "--help" ]; then
-        echo "maps-prolog surfaces --bundle-dir #{'--source-declarations --target-declarations' if parity_typed}"
+        echo "maps-prolog surfaces --bundle-dir #{'--cache-dir' if parity_cache} #{'--source-declarations --target-declarations' if parity_typed}"
         exit 0
       fi
       printf '%s\\n' "$*" >> "$PARITY_LOG"
