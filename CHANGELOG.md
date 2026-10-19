@@ -7,6 +7,24 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+### Added
+
+- Portable `AGENTS.md` template (`templates.AGENTS.md`) and `docs/resuming.md`
+  template (`templates.resuming.md`) for any porting repo, with per-repo
+  placeholders for the upstream pin, vendor path, gates, and plan paths.
+- `templates/parity_plan.md` in `cross-language-crystal-parity`, including the
+  **Where we are** resume block.
+- Resume contract shared by `crystal-forge-setup-project`,
+  `initialize-crystal-porting-project`, `porting-to-crystal`, and
+  `cross-language-crystal-parity`: entrypoint structure, session start/end
+  steps, plan refresh, and atomic per-feature commits.
+
+### Changed
+
+- `initialize-crystal-porting-project` baseline verifier now checks the agent
+  entrypoint (resume block, principles, session continuity, definition of done,
+  commit prefix, no leftover placeholders) and `docs/resuming.md`.
+
 ### Fixed
 
 - Rust parity discovery now retains the native Chiasmus `function`, `class`, and

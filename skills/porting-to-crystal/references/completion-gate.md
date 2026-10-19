@@ -58,6 +58,9 @@ git clean -ndX
 ## 6) Documentation Updates
 
 - Update parity status docs (complete/in-progress/deviations).
+- Refresh the **Where we are** block in `plans/parity.md` (current focus, next
+  up, last commit, gate results) so the next session resumes without git
+  archaeology, and keep the `AGENTS.md` **How to resume** block accurate.
 - Update changelog for user-visible behavior changes.
 - Keep README merged with upstream submodule README highlights; do not replace
   local README with upstream verbatim.

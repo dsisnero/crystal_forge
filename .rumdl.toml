@@ -6,6 +6,7 @@ exclude = [
     ".git/**",
     "README.md",
     "crystal-performance-workspace/**",
+    "skills/*/templates.*",
 ]
 respect_gitignore = true
 flavor = "standard"

@@ -93,6 +93,8 @@ added/removed/changed entities.
 ```
 
 2. Create or refresh `plans/parity.md` as a curated feature plan.
+   Seed it from `templates/parity_plan.md` and keep its **Where we are** block
+   current so a new session can resume without git archaeology.
    Use only major checkbox items (`[ ]` / `[x]`) that map to branch-sized,
    red-green-TDD-capable parity features.
 3. Pick one unchecked feature from `plans/parity.md`, port the failing/missing specs

@@ -56,8 +56,16 @@ For Crystal repos, prefer `format`, `ameba`, and `crystal spec` gates.
 Create or update:
 
 - `README.md` with clear upstream attribution and pinned source revision
-- `AGENTS.md` with source-of-truth and contributor workflow
+- `AGENTS.md` (with `CLAUDE.md` symlinked to it, or the reverse) generated from
+  `crystal-forge-setup-project/templates.AGENTS.md`
+- `docs/resuming.md` from `crystal-forge-setup-project/templates.resuming.md`
 - missing docs under `docs/`
+
+Fill every `{{TOKEN}}` in the templates for this repo; the vendor path, upstream
+pin, gates, and plan paths differ per project. The entrypoint is only correct
+when it has a **How to resume** block, a **Session continuity** section, a
+**Definition of done**, and the commit message convention, and all of their
+commands and paths are real.
 
 Do not replace useful local content wholesale; merge with it.
 
@@ -83,8 +91,10 @@ Initialization is complete when:
 
 1. upstream checkout exists at the agreed ref
 2. baseline quality gates are present
-3. README and AGENTS document the source of truth
-4. `plans/inventory/*` exists
+3. README and the `AGENTS.md`/`CLAUDE.md` entrypoint document the source of truth
+   and the resume workflow, and `docs/resuming.md` exists
+4. `plans/inventory/*` exists and `plans/parity.md` opens with a **Where we are**
+   block (see `cross-language-crystal-parity/templates/parity_plan.md`)
 5. the baseline verifier passes
 
 ## Route next

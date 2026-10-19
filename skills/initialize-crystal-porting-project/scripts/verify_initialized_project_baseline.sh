@@ -105,6 +105,48 @@ require_pattern "$README" 'https?://|github\.com' "README contains source attrib
 require_pattern "$README" '(?im)^##\s+Upstream README Highlights\s*$' "README includes 'Upstream README Highlights' section"
 require_pattern "$README" '(?i)submodule\s+README|upstream\s+README' "README references merged upstream/submodule README context"
 
+# agent entrypoint: AGENTS.md (preferred) or CLAUDE.md
+ENTRYPOINT=""
+for candidate in AGENTS.md CLAUDE.md; do
+  if [[ -f "${ROOT_DIR}/${candidate}" ]]; then
+    ENTRYPOINT="${ROOT_DIR}/${candidate}"
+    pass "agent entrypoint exists (${candidate})"
+    break
+  fi
+done
+if [[ -z "$ENTRYPOINT" ]]; then
+  fail "agent entrypoint missing (AGENTS.md or CLAUDE.md)"
+else
+  require_pattern "$ENTRYPOINT" '(?i)\*\*how to resume:\*\*' "entrypoint has a 'How to resume' block"
+  require_pattern "$ENTRYPOINT" '(?i)plans/parity\.md' "entrypoint resume block points at plans/parity.md"
+  require_pattern "$ENTRYPOINT" '(?i)source of truth|vendor/' "entrypoint names the source of truth"
+  require_pattern "$ENTRYPOINT" '(?im)^##\s+Principles\s*$' "entrypoint has Principles section"
+  require_pattern "$ENTRYPOINT" '(?im)^#{2,3}\s+Session continuity' "entrypoint has Session continuity section"
+  require_pattern "$ENTRYPOINT" '(?i)definition of done' "entrypoint has Definition of done section"
+  require_pattern "$ENTRYPOINT" 'port:' "entrypoint documents the 'port:' commit prefix"
+  if rg -n --pcre2 '\{\{[A-Z][A-Z0-9_]*\}\}' "$ENTRYPOINT" >/dev/null 2>&1; then
+    fail "entrypoint still contains unfilled {{PLACEHOLDER}} tokens"
+  else
+    pass "entrypoint has no unfilled template placeholders"
+  fi
+fi
+
+if [[ -f "${ROOT_DIR}/AGENTS.md" && -f "${ROOT_DIR}/CLAUDE.md" ]]; then
+  if [[ -L "${ROOT_DIR}/AGENTS.md" || -L "${ROOT_DIR}/CLAUDE.md" ]] \
+    || cmp -s "${ROOT_DIR}/AGENTS.md" "${ROOT_DIR}/CLAUDE.md"; then
+    pass "AGENTS.md and CLAUDE.md are one file (symlink or identical)"
+  else
+    fail "AGENTS.md and CLAUDE.md diverge; keep one file and symlink the other"
+  fi
+fi
+
+# resume checklist doc
+RESUMING="${DOCS_DIR}/resuming.md"
+require_file "$RESUMING" "docs/resuming.md"
+require_pattern "$RESUMING" '^#\s+.+$' "docs/resuming.md has top-level heading"
+require_pattern "$RESUMING" '(?i)where we are' "docs/resuming.md reads the 'Where we are' block"
+require_pattern "$RESUMING" '(?i)git status|git log' "docs/resuming.md checks the working tree"
+
 if [[ "$failures" -eq 0 ]]; then
   echo "Baseline verification passed."
   exit 0

@@ -37,3 +37,13 @@
    `check_test_parity`).
 2. Adversarial verification passes (`verify_parity_adversarial`).
 3. Placeholder specs (`pending`, `xit`, etc.) are absent in parity scope.
+
+## Resume Invariants
+
+1. `AGENTS.md` (or its `CLAUDE.md` symlink target) contains a **How to resume**
+   block pointing at `plans/parity.md` and the real gates.
+2. `plans/parity.md` opens with a **Where we are** block covering current focus,
+   ordered next up, status by area, scoping notes, last commit, and gate results.
+3. The block is refreshed in the same commit that closes a feature; it is never
+   left describing an older state.
+4. Session state is recovered from the plan, not from git history or chat.

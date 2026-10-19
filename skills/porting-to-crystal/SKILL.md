@@ -26,6 +26,21 @@ ports.
 Upstream behavior is the source of truth. Port behavior first, then express it
 with Crystal idioms only where semantics stay unchanged.
 
+## Resume first
+
+For an existing port, `AGENTS.md` (often symlinked to `CLAUDE.md`) is the
+entrypoint:
+
+1. Read its **How to resume** block.
+2. Read the **Where we are** block in `plans/parity.md` for current focus, next
+   up, and gate state. Do not re-derive state from git history or chat.
+3. Confirm the working tree and run the gates before changing anything.
+
+If the repo has no entrypoint yet, scaffold one from
+`crystal-forge-setup-project/templates.AGENTS.md` plus
+`crystal-forge-setup-project/templates.resuming.md` (→ `docs/resuming.md`), and
+fill every placeholder for that repo.
+
 ## Preflight
 
 Before implementation:
@@ -134,8 +149,10 @@ A feature is complete only when all are true:
 2. relevant upstream tests or equivalent characterization specs exist
 3. Crystal gates pass
 4. fixtures or output-sensitive behavior match upstream expectations
-5. parity inventory and plan entries are updated
+5. parity inventory and plan entries are updated, including the **Where we are**
+   block in `plans/parity.md`
 6. any intentional divergence is documented
+7. the feature is committed atomically (`port: ...`) before the next one starts
 
 Internal helper rows that only document inlining or closure conversion should
 not outweigh a green top-level feature unless the behavior they carry is still

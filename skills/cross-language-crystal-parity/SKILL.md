@@ -18,13 +18,38 @@ you need the extra detail.
 
 ## Artifacts
 
-- Curated feature plan: `plans/parity.md`
+- Session entrypoint: `AGENTS.md` (often symlinked to `CLAUDE.md`) with a
+  **How to resume** block that points at `plans/parity.md`
+- Curated feature plan: `plans/parity.md` (skeleton:
+  `templates/parity_plan.md`)
 - Curated working ledger: `plans/inventory/<language>_port_inventory.tsv`
 - Generated manifests:
   - `plans/inventory/<language>_source_parity.tsv`
   - `plans/inventory/<language>_test_parity.tsv`
 - Optional deterministic notes:
   - `plans/inventory/<language>_source_notes.tsv`
+
+## Resumable plan contract
+
+`plans/parity.md` is the first thing a new session reads, so it must carry the
+state instead of leaving it in git history or chat:
+
+- Start the file with a `## Where we are` block containing **Current focus**,
+  an ordered **Next up** list, status by area, scoping notes/gotchas, the last
+  commit, and the current gate results.
+- Keep per-symbol detail in the ledger, not in the plan.
+- Refresh the block after every feature, before committing and before ending a
+  session. A stale block is a broken resume path.
+- If the file grows too large, split areas into `plans/parity/<area>.md`, link
+  each from `plans/parity.md`, and name the file being worked on plus the next
+  one.
+- Repo-level rules (gates, definition of done, commit message) live in
+  `AGENTS.md`; the plan links to them instead of restating them.
+
+Use `templates/parity_plan.md` when the plan does not exist yet, and
+`crystal-forge-setup-project/templates.AGENTS.md` +
+`crystal-forge-setup-project/templates.resuming.md` for the entrypoint and
+`docs/resuming.md`.
 
 ## Core scripts
 
@@ -127,7 +152,8 @@ detect drift with `python3 scripts/sync_workspace_skills.py --check`.
 ```
 
 This should leave you with validated inventory manifests plus a curated
-`plans/parity.md`.
+`plans/parity.md`. If the plan does not exist yet, seed it from
+`templates/parity_plan.md` and fill the **Where we are** block.
 
 ### 2. Keep the right files curated
 
@@ -147,6 +173,8 @@ For each feature:
 5. Keep looping until the whole feature is done.
 6. Update the affected inventory rows before closing the feature.
 7. Check the feature box in `plans/parity.md` and make sure it is marked complete.
+8. Refresh the **Where we are** block (current focus, next up, last commit,
+   gate results) so the next session can resume without reading git history.
 
 If `plans/parity.md` grows too large, move details into
 `plans/feature-<phase-or-id>.md` subplans and link them from `plans/parity.md`.
@@ -341,6 +369,8 @@ Rules:
 - Commit after every completed feature in `plans/parity.md`. Never batch
   multiple unrelated features into one commit. Never leave completed features
   uncommitted at session end.
+- Never end a session with a stale **Where we are** block: refresh focus, next
+  up, last commit, and gate results before you stop.
 - Do not regenerate curated ledgers on top of active manual work.
 - Do not weaken upstream tests or fixtures to make Crystal look green.
 - Preserve behaviorally important internal data structures when upstream
