@@ -16,6 +16,8 @@ the previous cached version intact.
 
 Controls:
 
+- `CHIASMUS_VERSION`: exact stable release tag. Cached pins are reused; an
+  unavailable or incompatible pin fails rather than selecting another version.
 - `CHIASMUS_TOOLCHAIN_DIR`: unpacked complete release to verify and use. Useful
   for development and air-gapped installations.
 - `CHIASMUS_TOOLCHAIN_CACHE_DIR`: alternate cache location.
@@ -23,11 +25,28 @@ Controls:
 - `CHIASMUS_RELEASE_INDEX`: release-index JSON file or alternate API URL for
   controlled tests and mirrors.
 
-Example:
+From the skill directory, install the newest compatible host toolchain:
 
 ```bash
-python3 scripts/resolve_toolchain.py --require-capability discover.tree-sitter
+bash scripts/install_chiasmus_toolchain.sh
+bash scripts/install_chiasmus_toolchain.sh --version <exact-tag>
 ```
+
+The installer requires discovery, typed declarations, and parity bundle
+capabilities. It downloads only the requested platform (the current host by
+default), preserves the complete manifest and grammar bundle, and prints the
+verified directory. It uses the same resolver as runtime commands. The legacy
+`sync_chiasmus_release_binaries.sh <tag>` command forwards to this installer;
+it no longer writes to the skill's `bin/` directory.
+
+Export `CHIASMUS_VERSION=<exact-tag>` for subsequent parity commands to keep
+using that release. `--version` pins the installation command only. Offline
+pins resolve that exact cached directory even if another version is active.
+An explicit `CHIASMUS_TOOLCHAIN_DIR` can accompany a pin only when it is that
+pin's resolved cache directory; omit the pin for a manually provisioned bundle.
+
+On Windows, the shell wrappers require Bash (for example Git Bash), Ruby, and
+Python 3, and select the packaged `.exe` tools.
 
 If no compatible release has been published, strict tree-sitter and
 reconciliation commands fail. Publish a release archive with a v1 manifest

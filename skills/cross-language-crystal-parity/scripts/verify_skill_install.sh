@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="${1:-$(pwd)}"
+# Argument 1 remains the target root for compatibility; the probe is isolated.
 LANGUAGE="${2:-rust}"
 PARSER="${3:-tree-sitter}"
 SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 for wrapper in "${SCRIPT_DIR}"/*.sh; do
   [[ -x "${wrapper}" ]] || { echo "Parity skill wrapper is not executable: ${wrapper}" >&2; exit 2; }
@@ -15,6 +14,7 @@ discover_bin=""
 if [[ "${PARSER}" != "regex" ]]; then
   if toolchain="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability discover.tree-sitter)"; then
     discover_bin="${toolchain}/chiasmus-discover"
+    [[ -f "${discover_bin}.exe" ]] && discover_bin="${discover_bin}.exe"
     export CHIASMUS_TOOLCHAIN_DIR="${toolchain}"
     export CHIASMUS_GRAMMAR_DIR="${toolchain}/grammars"
   elif [[ "${PARSER}" == "tree-sitter" ]]; then

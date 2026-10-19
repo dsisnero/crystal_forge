@@ -287,17 +287,31 @@ def resolve(args: argparse.Namespace) -> Path:
             raise ResolutionError(f"individual binary override {name} is not allowed; use a whole toolchain")
     platform = args.platform or host_platform()
     platform_details(platform)
+    version = args.version
+    if version and (not re.fullmatch(r"[A-Za-z0-9._+-]+", version) or version in (".", "..")):
+        raise ResolutionError(f"invalid release tag: {version}")
     override = args.toolchain_dir or os.environ.get("CHIASMUS_TOOLCHAIN_DIR")
     if override:
         root = Path(override).expanduser().resolve()
+        if version and root != Path(args.cache_dir).expanduser().resolve() / platform / version:
+            raise ResolutionError("a version pin can only be combined with its resolved cache directory")
         verify_toolchain(root, platform, args.require_capability)
         return root
     cache = Path(args.cache_dir).expanduser().resolve()
+    # A pin must never fall back to another version, including when offline.
+    if version and (cache / platform / version).is_dir():
+        root = cache / platform / version
+        verify_toolchain(root, platform, args.require_capability)
+        return root
     if args.offline:
+        if version:
+            raise ResolutionError(f"pinned release {version} is not cached for {platform}")
         return active_toolchain(cache, platform, args.require_capability)
     try:
         releases = release_index(args.release_index)
     except (OSError, ValueError, urllib.error.URLError) as error:
+        if version:
+            raise ResolutionError(f"cannot resolve pinned release {version}: {error}") from error
         try:
             fallback = active_toolchain(cache, platform, args.require_capability)
         except (OSError, ValueError, KeyError, ResolutionError):
@@ -305,6 +319,8 @@ def resolve(args: argparse.Namespace) -> Path:
         print(f"release check failed; using verified cached toolchain: {error}", file=sys.stderr)
         return fallback
     for release in sorted(releases, key=release_sort_key, reverse=True):
+        if version and release.get("tag_name") != version:
+            continue
         if release.get("draft") or release.get("prerelease"):
             continue
         asset = release_asset(release, platform)
@@ -316,12 +332,14 @@ def resolve(args: argparse.Namespace) -> Path:
             if str(error).startswith("missing capability:"):
                 continue
             raise
-    raise ResolutionError(f"no compatible stable Chiasmus release for {platform}")
+    requested = f" tagged {version}" if version else ""
+    raise ResolutionError(f"no compatible stable Chiasmus release{requested} for {platform}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform")
+    parser.add_argument("--version", default=os.environ.get("CHIASMUS_VERSION"), help="Exact stable release tag (also CHIASMUS_VERSION)")
     parser.add_argument("--release-index", default=os.environ.get("CHIASMUS_RELEASE_INDEX"), help="Local JSON index or URL (for tests/offline mirrors)")
     parser.add_argument("--cache-dir", default=os.environ.get("CHIASMUS_TOOLCHAIN_CACHE_DIR", str(Path.home() / ".cache" / "chiasmus" / "toolchains")))
     parser.add_argument("--require-capability", action="append", default=[])

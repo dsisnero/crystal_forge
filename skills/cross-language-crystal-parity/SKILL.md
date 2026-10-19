@@ -36,6 +36,7 @@ you need the extra detail.
 - `scripts/check_source_parity.sh`
 - `scripts/check_test_parity.sh`
 - `scripts/verify_parity_adversarial.sh`
+- `scripts/reconcile_parity.sh`
 
 ## Parser mode
 
@@ -44,7 +45,9 @@ All generators accept `auto`, `regex`, or `tree-sitter` via `--parser` or
 
 - `auto`: preferred default
 - `tree-sitter`: require the Chiasmus discovery binary; fail when it is not
-  available rather than silently producing a regex inventory
+  available rather than silently producing a regex inventory. A configured
+  binary is authoritative for grammar availability: its bundled grammars are
+  used even when the target repository has no local `grammars/` directory.
 - `regex`: lowest-fidelity fallback
 
 Tree-sitter discovery resolves one verified Chiasmus release toolchain, then uses
@@ -52,13 +55,12 @@ its discovery CLI and matching grammars. The resolver checks the newest stable
 compatible release on each top-level run and caches complete archives by platform
 and tag. `CHIASMUS_TOOLCHAIN_DIR` selects a complete, manifest-verified local
 toolchain; `CHIASMUS_TOOLCHAIN_OFFLINE=1` uses the last verified cached release.
+Set `CHIASMUS_VERSION=<exact-tag>` to pin all commands to a stable release.
 Individual `CHIASMUS_*_BIN` overrides and stale bundled/repo binaries are not
 accepted. See `references/toolchain-resolution.md` for details.
 
-The `darwin-aarch64` discovery bundle includes native grammars for Crystal,
-Java, Rust, C#, TypeScript/JavaScript, Python, Ruby, and Go. Use the language
-identifiers `crystal`, `java`, `rust`, `csharp`, `typescript`, `javascript`,
-`python`, `ruby`, and `go` with strict mode.
+Available languages depend on the selected release's grammar bundle. The strict
+preflight checks that the requested language actually uses tree-sitter.
 
 ## Scope and preflight
 
@@ -93,6 +95,11 @@ Release archives are resolved automatically. For an air-gapped installation,
 set `CHIASMUS_TOOLCHAIN_DIR` to an unpacked complete release directory or warm
 the resolver cache before setting `CHIASMUS_TOOLCHAIN_OFFLINE=1`.
 
+To install explicitly, run `bash "${SKILL_DIR}/scripts/install_chiasmus_toolchain.sh"`.
+Use `--version <exact-tag>` to install a specific release. In this repository,
+refresh workspace skills with `python3 scripts/sync_workspace_skills.py` and
+detect drift with `python3 scripts/sync_workspace_skills.py --check`.
+
 ## Standard flow
 
 ### 1. Create or refresh the plan
@@ -115,12 +122,17 @@ This should leave you with validated inventory manifests plus a curated
 
 For each feature:
 
-1. Read the upstream source module and nearest upstream tests.
-2. Port the next failing or missing parity spec first.
-3. Make the smallest behavior change that turns the spec green.
-4. Keep looping until the whole feature is done.
-5. Update the affected inventory rows before closing the feature.
-6. Check the feature box in `plans/parity.md`.
+1. Pick the next feature and record it as current in `plans/parity.md`.
+2. Read the upstream source module and nearest upstream tests.
+3. Port the next failing or missing parity spec first.
+4. Make the smallest behavior change that turns the spec green.
+5. Keep looping until the whole feature is done.
+6. Update the affected inventory rows before closing the feature.
+7. Check the feature box in `plans/parity.md` and make sure it is marked complete.
+
+If `plans/parity.md` grows too large, move details into
+`plans/feature-<phase-or-id>.md` subplans and link them from `plans/parity.md`.
+Keep the current feature visible in the top-level plan.
 
 Do not stop at helper-sized milestones if the top-level feature is still open.
 
@@ -143,7 +155,8 @@ Before committing:
 5. Push or keep local — but the commit must exist.
 
 Example:
-```
+
+```text
 port: JobExecutor execute, SubscriptionManager
 
 - JobExecutor: full execute with hooks, middleware, retry, snooze, stuck detection
@@ -167,6 +180,115 @@ port: JobExecutor execute, SubscriptionManager
 ```
 
 Run this as an independent review pass when possible.
+
+## Cross-language reconciliation (maps / surfaces / divergences)
+
+Beyond generated manifests, the skill can reconcile a source tree against the
+Crystal port by entity identity using declarative rule data, and surface
+ledger-vs-structure disagreements. Requires a compatible complete Chiasmus
+toolchain resolved as described above.
+
+Rule data lives in the port repo (recommended `plans/parity_rules.yml`):
+
+```yaml
+version: 1
+source_language: java
+target_language: crystal
+match_owner: true
+source:
+  strip_namespace: ["org.apache.pdfbox."]
+  strip_prefix: [COS, PD, FDF, PDF]
+  strip_accessor: true
+  type_map: { void: nil, int: int, boolean: bool }
+target:
+  strip_namespace: ["Pdfbox::"]
+  strip_prefix: [COS, PD, PDF]
+  type_map: { Nil: nil, Int32: int, Bool: bool }
+renames: [{ source: DefaultResourceCache, target: ResourceCache }]
+consolidate: [{ source: "Operator*", target: process_operator }]
+owner_aliases: [{ source: contentstream, target: content_stream }]
+```
+
+Drive the full reconciliation:
+
+```bash
+"${SKILL_DIR}/scripts/reconcile_parity.sh" . <source-path> <source-language> <target-dir> [rules-file]
+# e.g. Java -> Crystal
+"${SKILL_DIR}/scripts/reconcile_parity.sh" . vendor/pdfbox java src plans/parity_rules.yml
+```
+
+The wrapper enables Chiasmus's persistent per-file extraction cache for both
+facts runs. Set `PORT_RECONCILE_CACHE_DIR` to choose its location (otherwise it
+uses `CHIASMUS_CACHE_DIR` or the platform cache default). With a Chiasmus binary
+that advertises `chiasmus-discover --cache-dir`, generated Java, Crystal, and Go
+manifests use the same cache; older discovery bundles keep their prior behavior.
+The wrapper requires the typed declaration and bundle capabilities and checks
+their CLI flags before extraction. It rejects older or mixed binary versions;
+run the install preflight before a strict refresh.
+
+Outputs in `plans/generated/parity/<language>/`:
+
+- `maps.tsv` - `matched` / `ambiguous` / `unmapped_source` per source entity
+- `surfaces.tsv` - arity drift on matched method pairs
+- `divergences.tsv` - `falsely_missing` / `falsely_ported` ledger disagreements
+- `maps.pl` - a Prolog program (`maps_to/2`, `surface_ok/1`, `incomplete/1`)
+  queryable via `swipl` or the MCP `chiasmus_verify` tool
+
+Control scope with `PORT_SCOPE_EXCLUDE` (comma-separated paths/globs, e.g.
+`debugger,tools,benchmark,examples`); it is passed to `chiasmus-facts --exclude`
+(repeatable) so out-of-scope trees stop inflating the map. `divergences.tsv`
+columns: `source_id kind inventory_status map_status divergence target_name
+target_file target_owner basis`.
+
+See the tool docs `chiasmus.cr/docs/parity-rule-data.md` for the full schema,
+authoring workflow, and the worked PDFBox example.
+
+## Vendor refresh & re-reconcile
+
+When the upstream/vendor source moves (submodule bump, new tag), the generated
+manifests and reconciliation go stale while the curated ledger and
+`plans/parity.md` stay authoritative. Re-derive the generated layer without
+clobbering curated work:
+
+1. Bump the vendor checkout and record the new revision (ledger notes or PR):
+
+   ```bash
+   git -C vendor/<upstream> fetch --tags
+   git -C vendor/<upstream> checkout <new-tag-or-sha>
+   ```
+
+2. Refresh generated manifests and re-run drift checks, preserving the curated
+   port inventory:
+
+   ```bash
+   "${SKILL_DIR}/scripts/ensure_parity_plan.sh" . <source_path> <language> auto 1
+   ```
+
+   `REFRESH=1` regenerates `<language>_source_parity.tsv` /
+   `<language>_test_parity.tsv` and re-runs `check_*`. It never overwrites the
+   curated `<language>_port_inventory.tsv`; never run `generate_port_inventory.sh`
+   against a live ledger.
+
+3. Re-derive the reconciliation (idempotent):
+
+   ```bash
+   "${SKILL_DIR}/scripts/reconcile_parity.sh" . <source_path> <language> <target-dir> plans/parity_rules.yml
+   ```
+
+4. Diff against the previous run and triage. For facts-level drift use
+   `chiasmus-plan refresh --previous-facts <previous>.pl`, then review
+   `maps.tsv` (new `unmapped_source` / `ambiguous`), `surfaces.tsv` (new arity
+   drift), and `divergences.tsv` (new `falsely_missing` / `falsely_ported`).
+
+5. Update the curated ledger rows and `plans/parity.md` for the changes, then
+   re-run adversarial signoff:
+
+   ```bash
+   "${SKILL_DIR}/scripts/verify_parity_adversarial.sh" . <source_path> <language> 'crystal spec' '<upstream test command>'
+   ```
+
+Guardrail: the generated layer is disposable; the curated `port_inventory.tsv`
+and `plans/parity.md` are not. Regenerate freely, re-curate deliberately.
 
 ## Ledger rules
 

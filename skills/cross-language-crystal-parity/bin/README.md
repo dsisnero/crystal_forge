@@ -1,26 +1,15 @@
-# Bundled Chiasmus Binaries
+# Legacy Binary Directory
 
-This directory is reserved for platform-specific `chiasmus-discover` and
-`chiasmus-parity` release artifacts plus their `grammars/` bundle.
+The skill installs complete, manifest-verified Chiasmus toolchains into
+`~/.cache/chiasmus/toolchains/<platform>/<tag>` and does not load binaries here.
+Existing local files may be retained, but are not an installation source.
 
-Expected layout:
-
-- `darwin-aarch64/chiasmus-discover`
-- `darwin-aarch64/chiasmus-parity`
-- `darwin-aarch64/grammars/...`
-- `linux-x86_64/chiasmus-discover`
-- `linux-x86_64/chiasmus-parity`
-- `linux-x86_64/grammars/...`
-- `windows-x86_64/chiasmus-discover.exe`
-- `windows-x86_64/chiasmus-parity.exe`
-- `windows-x86_64/grammars/...`
-
-Populate this directory from a tagged `dsisnero/chiasmus.cr` release with:
+From the skill directory, install the newest compatible stable release:
 
 ```bash
-./scripts/sync_chiasmus_release_binaries.sh <tag>
+bash scripts/install_chiasmus_toolchain.sh
 ```
 
-These files are legacy/manual bundles. The parity scripts now resolve one
-manifest-verified release toolchain automatically and do not select binaries
-from this directory. See `../references/toolchain-resolution.md`.
+Use `--version <exact-tag>` or `CHIASMUS_VERSION` to pin a release. For offline
+and manually provisioned installations, see
+[toolchain resolution](../references/toolchain-resolution.md).

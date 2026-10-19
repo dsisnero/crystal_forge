@@ -44,7 +44,7 @@ module ParityInventory
   end
 
   def detect_treesitter(language, root_dir = nil)
-    return true if grammar_available?(language, root_dir)
+    return true if tree_sitter_available?(language, root_dir)
 
     begin
       require 'tree_sitter'
@@ -77,6 +77,14 @@ module ParityInventory
 
     begin
       command = Array(discover_bin) + ['--language', language, '--dir', base.to_s, '--parser', 'tree-sitter']
+      if %w[java crystal go].include?(language)
+        help = IO.popen(Array(discover_bin) + ['--help'], &:read)
+        if help.include?('--cache-dir')
+          cache_dir = ENV['PORT_RECONCILE_CACHE_DIR'] || ENV['CHIASMUS_CACHE_DIR'] ||
+                      File.join(ENV['XDG_CACHE_HOME'] || File.join(Dir.home, '.cache'), 'chiasmus')
+          command += ['--cache-dir', cache_dir]
+        end
+      end
       output = IO.popen(command, &:read)
       status = $?
       unless status&.success?
@@ -138,6 +146,14 @@ module ParityInventory
     end
   end
 
+  # A configured discovery binary owns its bundled grammar lookup. Requiring a
+  # target repository to duplicate that grammar directory makes strict mode
+  # incorrectly reject otherwise working binaries (for example, a shared
+  # Chiasmus installation analyzing an unrelated porting repository).
+  def tree_sitter_available?(language, root_dir = nil)
+    grammar_available?(language, root_dir) || !discover_crystal_binary(root_dir).nil?
+  end
+
   def grammar_dirs(root_dir = nil)
     dirs = []
     if (env = ENV['CHIASMUS_GRAMMAR_DIR']) && !env.empty?
@@ -152,7 +168,8 @@ module ParityInventory
 
   def crystal_discovery_candidates(root_dir = nil)
     _ = root_dir
-    key = [ENV['CHIASMUS_TOOLCHAIN_DIR'], ENV['CHIASMUS_RELEASE_INDEX'], ENV['CHIASMUS_TOOLCHAIN_OFFLINE']]
+    key = %w[CHIASMUS_TOOLCHAIN_DIR CHIASMUS_RELEASE_INDEX CHIASMUS_TOOLCHAIN_OFFLINE
+             CHIASMUS_VERSION CHIASMUS_TOOLCHAIN_CACHE_DIR].map { |name| ENV[name] }
     return @resolved_discovery_candidates if @resolved_discovery_key == key
 
     script = File.join(__dir__, 'resolve_toolchain.py')
@@ -207,7 +224,7 @@ module ParityInventory
     base = resolve_base(root_dir, source_path)
     raise ArgumentError, "Source directory does not exist: #{base}" unless base.directory?
 
-    unless grammar_available?(language, root_dir) || SUPPORTED_LANGUAGES.include?(language)
+    unless SUPPORTED_LANGUAGES.include?(language) || tree_sitter_available?(language, root_dir)
       raise ArgumentError, "Unsupported language: #{language} (no tree-sitter grammar and no regex extractor)"
     end
 
@@ -274,8 +291,11 @@ module ParityInventory
 
   def effective_parser(language, parser_mode, root_dir = nil)
     mode = parser_mode.to_s
-    treesitter_available = grammar_available?(language, root_dir)
     return 'regex' if mode.empty? || mode == 'regex'
+    unless %w[auto tree-sitter].include?(mode)
+      raise ArgumentError, "Invalid parser mode: #{parser_mode} (expected auto|regex|tree-sitter)"
+    end
+    treesitter_available = tree_sitter_available?(language, root_dir)
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'tree-sitter'
     return treesitter_available ? 'tree-sitter' : 'regex' if mode == 'auto'
 

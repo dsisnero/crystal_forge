@@ -5,6 +5,25 @@ All notable user-facing changes to this project will be documented in this file.
 Changes are grouped by release date and category. Only user-facing changes
 are included — internal refactors, test updates, and CI changes are omitted.
 
+## [1.9.0] - 2026-10-19
+
+### Added
+
+- Verified-cache Chiasmus installer with exact release pins and offline reuse.
+- Workspace skill refresh and drift checks that preserve origin metadata and
+  link supporting resources to canonical sources.
+- Real-release consumer verification through discovery and reconciliation.
+
+### Fixed
+
+- Relative repository roots now resolve reconciliation rules correctly.
+- The legacy release sync command uses the verified installer instead of
+  assembling incomplete binary bundles inside the skill.
+- Windows wrappers select packaged executables, and explicit regex discovery
+  avoids toolchain resolution.
+- Skill documentation and shell lint findings, including stale installation
+  instructions and workspace resource copies.
+
 ## [1.4.0] — 2026-05-25
 
 ### Changed

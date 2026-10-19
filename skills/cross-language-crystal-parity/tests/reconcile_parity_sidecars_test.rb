@@ -71,6 +71,20 @@ class ReconcileParitySidecarsTest < Minitest::Test
     end
   end
 
+  def test_relative_repo_root_loads_default_rules
+    with_fixture do |root, repo, out, facts_log, parity_log|
+      FileUtils.mkdir_p(File.join(repo, 'plans'))
+      File.write(File.join(repo, 'plans/parity_rules.yml'), "version: 1\n")
+      Dir.chdir(root) do
+        stdout, stderr, status = run_wrapper(root, 'repo', out, facts_log, parity_log,
+                                              facts_typed: true, parity_typed: true)
+        assert status.success?, "#{stdout}\n#{stderr}"
+        assert_includes File.read(parity_log), "--map-rules #{File.realpath(repo)}/plans/parity_rules.yml"
+        refute_includes stderr, 'No rules file'
+      end
+    end
+  end
+
   private
 
   def with_fixture

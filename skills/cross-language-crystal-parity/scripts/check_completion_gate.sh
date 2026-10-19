@@ -50,7 +50,9 @@ run_tool() {
   local tool_name="$2"
   shift 2
   : "${env_var}"
-  "${TOOLCHAIN}/${tool_name}" "$@"
+  local executable="${TOOLCHAIN}/${tool_name}"
+  [[ -f "${executable}.exe" ]] && executable="${executable}.exe"
+  "${executable}" "$@"
 }
 
 build_entry_point_args() {

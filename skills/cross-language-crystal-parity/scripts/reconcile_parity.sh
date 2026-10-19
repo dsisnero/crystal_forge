@@ -23,13 +23,13 @@
 set -euo pipefail
 
 ROOT_DIR="${1:?usage: reconcile_parity.sh <repo-root> <source-path> <source-language> <target-dir> [rules-file]}"
+ROOT_DIR="$(cd "${ROOT_DIR}" && pwd -P)"
 SOURCE_PATH="${2:?source path required}"
 SOURCE_LANGUAGE="${3:?source language required}"
 TARGET_DIR="${4:?target dir required}"
 RULES_FILE="${5:-${PORT_MAP_RULES:-${ROOT_DIR}/plans/parity_rules.yml}}"
 
 SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUT_DIR="${PORT_RECONCILE_OUT:-${ROOT_DIR}/plans/generated/parity/${SOURCE_LANGUAGE}}"
 LEDGER="${PORT_INVENTORY:-${ROOT_DIR}/plans/inventory/${SOURCE_LANGUAGE}_port_inventory.tsv}"
 
@@ -39,8 +39,12 @@ resolve_path() {
 }
 
 TOOLCHAIN="$(python3 "${SCRIPT_DIR}/resolve_toolchain.py" --require-capability facts.typed-declarations --require-capability parity.bundle)"
+OUT_DIR="$(resolve_path "${OUT_DIR}")"
+LEDGER="$(resolve_path "${LEDGER}")"
 FACTS_BIN="${TOOLCHAIN}/chiasmus-facts"
 PARITY_BIN="${TOOLCHAIN}/chiasmus-parity"
+[[ -f "${FACTS_BIN}.exe" ]] && FACTS_BIN="${FACTS_BIN}.exe"
+[[ -f "${PARITY_BIN}.exe" ]] && PARITY_BIN="${PARITY_BIN}.exe"
 export CHIASMUS_GRAMMAR_DIR="${TOOLCHAIN}/grammars"
 CACHE_DIR="${PORT_RECONCILE_CACHE_DIR:-${CHIASMUS_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/chiasmus}}"
 PARITY_HELP="$("${PARITY_BIN}" --help 2>&1)"

@@ -32,6 +32,7 @@ wg.wait
 **Requires**: `Atomic` or `Mutex` for any shared mutable state.
 
 **Resize at runtime**:
+
 ```crystal
 ctx.resize(new_count)
 ```
@@ -99,7 +100,7 @@ yields.
 
 ### Map-Reduce (CPU math, 8 items × 2M iterations)
 
-```
+```text
 Default spawn:                          49ms
 ExecutionContext::Parallel (4 threads):  14ms
 Speedup:                                3.4x
@@ -107,7 +108,7 @@ Speedup:                                3.4x
 
 ### Worker Pool MD5 (200 items)
 
-```
+```text
 Default spawn:                          5.7ms
 ExecutionContext::Parallel (4 threads):  0.9ms
 Speedup:                                ~6x
@@ -115,7 +116,7 @@ Speedup:                                ~6x
 
 ### File Digest (1014 files, 8 workers)
 
-```
+```text
 Default spawn:                          719ms
 ExecutionContext::Parallel (8 threads):   82ms
 Speedup:                                8.76x
@@ -123,7 +124,7 @@ Speedup:                                8.76x
 
 ### Mixed I/O + CPU (2154 files, 8 workers)
 
-```
+```text
 Default spawn:                         1109ms
 ExecutionContext::Parallel (8 threads):  251ms
 Speedup:                                4.42x
@@ -154,7 +155,7 @@ Same worker code, same channels, same WaitGroup. Just `ctx.spawn` instead of
 
 ## Decision Guide
 
-```
+```text
 Is the work I/O-bound?
   → default spawn (fibers yield on I/O naturally)
 

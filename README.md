@@ -1,103 +1,67 @@
-<p align="center">
-  <strong>Agent skills for working on Crystal code projects.</strong><br>
-  Reusable setup and workflow guidance for Crystal-first agent engineering.
-</p>
+# Crystal Forge
 
-<p align="center">
-  <a href="docs/architecture.md">Architecture</a> &middot;
-  <a href="docs/development.md">Development</a> &middot;
-  <a href="docs/coding-guidelines.md">Guidelines</a> &middot;
-  <a href="docs/testing.md">Testing</a> &middot;
-  <a href="docs/pr-workflow.md">PR Workflow</a>
-</p>
+Reusable agent skills for Crystal development, porting, parity verification,
+concurrency, benchmarking, and dependency maintenance.
 
----
+Canonical skills live under [skills/](skills/). Each skill has a `SKILL.md`
+entrypoint and any scripts or references it needs.
 
-Like a forge, this project shapes rough ideas into dependable tools, but for Crystal engineering workflows. Each skill is a repeatable mold: it captures standards once, then applies them consistently across projects. The result is less setup friction and more predictable, high-quality Crystal work.
+## Workspace Installation
 
----
-
-## Quick Start
-
-1. Install dependencies:
-
-   ```bash
-   make install
-   ```
-
-2. Run code quality gates:
-
-   ```bash
-   make format
-   make lint
-   make test
-   ```
-
-3. Run markdown checks:
-
-   ```bash
-   make markdown-check
-   ```
-
-## Features
-
-- Crystal-focused skill workflows under `skills/`.
-- Crystal setup baseline including `.ameba.yml` and `.rumdl.toml` templates.
-- Enforced Crystal code gates for format, lint, and specs.
-
-## Installation
-
-1. Add the dependency to your `shard.yml`:
-
-   ```yaml
-   dependencies:
-     crystal_forge:
-       github: dsisnero/crystal_forge
-   ```
-
-2. Run `shards install`
-
-## Usage
-
-```crystal
-require "crystal_forge"
-```
-
-`<!-- TODO: add concrete runtime usage examples as public APIs are added -->`
-
-## Development
-
-Essential commands:
+From this checkout:
 
 ```bash
-make install
-make format
-make lint
-make test
-make markdown
-make markdown-check
+python3 scripts/sync_workspace_skills.py
+python3 scripts/sync_workspace_skills.py --check
 ```
 
-See [Development Guide](docs/development.md) for full setup instructions.
+The sync command refreshes this workspace's `.agents/skills/`, preserves
+installed origin metadata, and links resource directories to canonical sources.
+Replaced files are backed up in a temporary directory. Existing local binary
+bundles are left untouched. After editing a source `SKILL.md`, run sync again;
+resource edits are visible immediately through the links.
 
-## Documentation
+## Chiasmus Toolchain
 
-| Document | Purpose |
-|----------|---------|
-| [Architecture](docs/architecture.md) | System design and data flow |
-| [Development](docs/development.md) | Setup and daily workflow |
-| [Coding Guidelines](docs/coding-guidelines.md) | Code style and conventions |
-| [Testing](docs/testing.md) | Test commands and patterns |
-| [PR Workflow](docs/pr-workflow.md) | Commits, PRs, and review process |
+The parity skill resolves one complete Chiasmus release into a verified cache.
+To install explicitly:
 
-## Contributing
+```bash
+bash skills/cross-language-crystal-parity/scripts/install_chiasmus_toolchain.sh
+```
 
-1. Create an issue: `/forge-create-issue`
-2. Implement: `/forge-implement-issue <number>`
-3. Self-review: `/forge-reflect-pr`
-4. Address feedback: `/forge-address-pr-feedback`
-5. Update changelog: `/forge-update-changelog`
+Use `--version <exact-tag>` to install a particular stable release and export
+`CHIASMUS_VERSION=<exact-tag>` to pin subsequent parity commands. See
+[toolchain resolution](skills/cross-language-crystal-parity/references/toolchain-resolution.md)
+for offline use, platform requirements, and manifest verification.
 
-## Contributors
+## Verification
 
-- [Dominic Sisneros](https://github.com/dsisnero) - creator and maintainer
+Requires Python 3 and Ruby. Markdown and shell linting additionally use
+`rumdl` and `shellcheck`.
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/cross-language-crystal-parity/tests -p 'test_*.py' -v
+ruby skills/cross-language-crystal-parity/tests/reconcile_parity_sidecars_test.rb
+python3 scripts/sync_workspace_skills.py --check
+rumdl check skills
+shellcheck -S warning skills/*/scripts/*.sh
+git diff --check
+```
+
+Crystal examples under `skills/crystal-concurrency/examples/` can be compiled
+and run separately with the Crystal toolchain. Release artifact smoke tests
+belong in `dsisnero/chiasmus.cr`.
+
+To exercise a real published toolchain through the skill wrappers, install the
+release first and run:
+
+```bash
+python3 scripts/verify_released_toolchain.py --version <exact-tag>
+python3 scripts/verify_released_toolchain.py --version <exact-tag> --offline
+```
+
+This checks strict tree-sitter preflight, Java-to-Crystal entity mappings, and
+method surfaces using explicit type-conversion rules. It requires the selected
+release's native runtime libraries and is separate from the offline fixture tests.

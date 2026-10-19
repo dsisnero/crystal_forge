@@ -130,6 +130,7 @@ heap-allocated. There is no way to make these stack-allocated.
 Examples: `TreeCursor`, `QueryCursor`, `LookaheadIterator`, `Parser`, `Tree`.
 
 **Mitigations:**
+
 - Add **reuse patterns** (pass existing cursor as a parameter): `named_children(cursor)`
 - Provide **block-based alternatives** that avoid class allocation: `each_child`, `each_named_child`
 - Accept the allocation when the class is created once and reused many times

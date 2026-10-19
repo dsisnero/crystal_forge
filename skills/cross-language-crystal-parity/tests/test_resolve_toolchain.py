@@ -56,6 +56,49 @@ class ResolveToolchainTest(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertTrue((second / "chiasmus-discover").is_file())
 
+    def test_pin_selects_exact_release_and_offline_ignores_other_active_version(self) -> None:
+        older = self.make_release("v1.0.0", "linux-x86_64", {"discover.tree-sitter"})
+        newer = self.make_release("v2.0.0", "linux-x86_64", {"discover.tree-sitter"})
+        self.write_index([older, newer])
+        result = self.run_resolver("linux-x86_64", "discover.tree-sitter", env={"CHIASMUS_VERSION": "v1.0.0"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pinned = Path(result.stdout.strip())
+        self.assertEqual(pinned.name, "v1.0.0")
+        self.resolve("linux-x86_64", "discover.tree-sitter")
+        result = self.run_resolver("linux-x86_64", "discover.tree-sitter", offline=True,
+                                   env={"CHIASMUS_VERSION": "v1.0.0", "CHIASMUS_TOOLCHAIN_DIR": str(pinned)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(Path(result.stdout.strip()), pinned)
+        missing = self.run_resolver("linux-x86_64", "discover.tree-sitter", offline=True,
+                                    env={"CHIASMUS_VERSION": "v3.0.0"})
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn("not cached", missing.stderr)
+
+    def test_missing_or_incompatible_pin_does_not_select_other_release(self) -> None:
+        release = self.make_release("v1.0.0", "linux-x86_64", {"discover.regex"})
+        compatible = self.make_release("v2.0.0", "linux-x86_64", {"discover.tree-sitter"})
+        self.write_index([release, compatible])
+        for version in ("v1.0.0", "v3.0.0", "..", "../escape"):
+            result = self.run_resolver("linux-x86_64", "discover.tree-sitter", env={"CHIASMUS_VERSION": version})
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_legacy_sync_installs_complete_verified_host_toolchain(self) -> None:
+        release = self.make_release("v1.0.0", self.host_platform(),
+                                    {"discover.tree-sitter", "facts.typed-declarations", "parity.bundle"})
+        self.write_index([release])
+        env = os.environ.copy()
+        for name in list(env):
+            if name.startswith("CHIASMUS_"):
+                env.pop(name)
+        env.update({"CHIASMUS_RELEASE_INDEX": str(self.index), "CHIASMUS_TOOLCHAIN_CACHE_DIR": str(self.cache)})
+        result = subprocess.run(["bash", str(SCRIPT.with_name("sync_chiasmus_release_binaries.sh")), "v1.0.0"],
+                                env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = Path(result.stdout.strip())
+        self.assertTrue(installed.is_relative_to(self.cache.resolve()))
+        self.assertTrue((installed / "toolchain-manifest.json").is_file())
+        self.assertTrue((installed / "chiasmus-complete").is_file())
+
     def test_accepts_paired_appledouble_metadata_in_archive_and_cache(self) -> None:
         release = self.make_release("v1.2.0", "darwin-aarch64", {"discover.tree-sitter"})
         stage = self.root / "stage-v1.2.0" / "chiasmus"
@@ -211,6 +254,20 @@ class ResolveToolchainTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "nil")
 
+    def test_explicit_regex_does_not_resolve_a_toolchain(self) -> None:
+        (self.root / "probe.go").write_text("package probe\ntype Probe struct{}\n")
+        ruby = """
+          def ParityInventory.discover_crystal_binary(*)
+            raise 'regex mode tried to resolve a toolchain'
+          end
+          _, items = ParityInventory.discover_items(root_dir: ARGV[0], source_path: '.',
+                                                   language: 'go', parser_mode: 'regex')
+          abort 'missing Probe' unless items.any? { |item| item.name == 'Probe' }
+        """
+        result = subprocess.run(["ruby", "-r", str(SCRIPT.with_name("parity_inventory_lib.rb")),
+                                 "-e", ruby, str(self.root)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_completion_gate_uses_one_verified_toolchain(self) -> None:
         self.make_release("v1.0.0", self.host_platform(), {"facts.typed-declarations"})
         stage = self.root / "stage-v1.0.0" / "chiasmus"
@@ -270,7 +327,8 @@ class ResolveToolchainTest(unittest.TestCase):
         if offline:
             command.append("--offline")
         process_env = os.environ.copy()
-        for name in ("CHIASMUS_TOOLCHAIN_DIR", "CHIASMUS_DISCOVER_BIN", "CHIASMUS_FACTS_BIN", "CHIASMUS_PARITY_BIN"):
+        for name in ("CHIASMUS_TOOLCHAIN_DIR", "CHIASMUS_DISCOVER_BIN", "CHIASMUS_FACTS_BIN", "CHIASMUS_PARITY_BIN",
+                     "CHIASMUS_VERSION", "CHIASMUS_TOOLCHAIN_OFFLINE"):
             process_env.pop(name, None)
         process_env.update(env or {})
         return subprocess.run(command, text=True, capture_output=True, env=process_env, check=False)

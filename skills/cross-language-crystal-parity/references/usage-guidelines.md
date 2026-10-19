@@ -1,17 +1,17 @@
+# Usage Guidelines
+
 Set `SKILL_DIR` to the installed parity skill root before running these examples.
 
 ```bash
 SKILL_DIR=/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crystal-parity
 ```
 
-# Usage Guidelines
-
 ## Crystal Discovery Binary (Optional but Recommended)
 
 For tree-sitter-backed discovery, the parity scripts detect and delegate to a
 Crystal discovery binary (`chiasmus-discover`). This provides:
 
-- Per-language S-expression tree-sitter query patterns (10 languages).
+- Per-language S-expression tree-sitter query patterns (coverage depends on the release).
 - Non-blocking concurrent file processing via Crystal fibers + channels.
 - Higher accuracy than regex for significant declarations (classes, interfaces,
   functions, methods, constants, tests).
@@ -60,6 +60,29 @@ Examples:
 # Intentional test manifest reset only
 "${SKILL_DIR}/scripts/generate_test_parity_manifest.sh" . plans/inventory/rust_test_parity.tsv vendor/upstream rust 1
 ```
+
+## Vendor Refresh & Re-reconcile
+
+When upstream moves, refresh the generated layer without clobbering curated work:
+
+```bash
+# 1. Bump the vendor checkout; record the new revision.
+git -C vendor/<upstream> fetch --tags && git -C vendor/<upstream> checkout <tag>
+
+# 2. Regenerate manifests + re-run drift checks (REFRESH=1). Preserves the
+#    curated port inventory.
+"${SKILL_DIR}/scripts/ensure_parity_plan.sh" . vendor/upstream rust auto 1
+
+# 3. Re-derive reconciliation (idempotent).
+"${SKILL_DIR}/scripts/reconcile_parity.sh" . vendor/upstream rust src
+
+# 4. Triage new unmapped/divergent/surface-drift rows, then re-curate.
+```
+
+The curated `plans/inventory/<language>_port_inventory.tsv` and `plans/parity.md`
+are authoritative; never regenerate the port inventory on a live ledger. For
+facts-level drift, `chiasmus-plan refresh --previous-facts <previous>.pl` reports
+added/removed/changed entities.
 
 ## Recommended Day-to-Day Loop
 

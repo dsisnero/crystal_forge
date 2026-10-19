@@ -86,6 +86,7 @@ Patterns marked with an example file have a complete runnable program in `exampl
 showing the full lifecycle (producer → channel → workers → WaitGroup → close).
 
 ### Basic — `references/basic.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Generator | Fiber + channel; the channel is the stream | — |
@@ -98,6 +99,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 | Error-Handling Channel | Carry value-or-error so a stage never crashes | — |
 
 ### Coordination — `references/coordination.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Worker Pool | Fixed workers pull jobs, WaitGroup closes results | `worker_pool.cr` |
@@ -108,6 +110,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 | Ping-Pong | Volley one mutable object; ownership moves with send | — |
 
 ### Cancellation — `references/cancellation.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Done Channel | `close` broadcasts cancel to all waiters | `pipeline_cancel.cr` |
@@ -120,6 +123,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 | Context | `done` + cancel proc = WithCancel / WithTimeout | — |
 
 ### Data Flow — `references/data-flow.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Tee Channel | Duplicate each value to two outputs (flag workaround) | — |
@@ -130,6 +134,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 | Subscription | RSS aggregator; the nil-channel-in-select workaround | — |
 
 ### Resilience — `references/resilience.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Rate Limiting | One op per fixed interval | — |
@@ -140,6 +145,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 | Batch / Debounce | Flush on size or on a quiet window | — |
 
 ### Computation — `references/computation.md`
+
 | Pattern | What it does | Example |
 |---------|--------------|---------|
 | Future / Promise | Start work now, collect later (cap-1 channel) | — |
@@ -154,7 +160,7 @@ showing the full lifecycle (producer → channel → workers → WaitGroup → c
 
 Read `references/execution-contexts.md` for code examples and benchmarks.
 
-```
+```text
 Is the work I/O-bound?
 ├── Yes → `spawn` in the current context; standard-library I/O yields to the
 │        event loop while it waits.
@@ -198,6 +204,7 @@ the current path first and identify whether the real cost is I/O, parser work,
 FFI, cache persistence, or actual CPU-bound computation.
 
 **Measured speedups** (Apple Silicon arm64, 8 workers):
+
 - Map-reduce (CPU math): 3.4x with 4 threads
 - MD5 hashing (200 items): ~6x with 4 threads
 - File digest (1014 files): 8.76x with 8 threads

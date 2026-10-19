@@ -10,7 +10,8 @@ with a discriminator field instead of separate `Entry`/`Indirect` class
 hierarchies with tagged `Pointer(Void)`.
 
 ### Wrong (3 attempts, all failed)
-```
+
+```text
 Tagged pointers (low bit 0=indirect, 1=entry):
   Pointer(Void).as(Entry(K,V))  +  Pointer(Void).as(Indirect)
   → 2 type casts × 30 methods × 2 generic instantiations = 120 compiler passes
@@ -29,6 +30,7 @@ Type-erased internals (store K,V as Void*):
 ```
 
 ### Right: Unified Node (from `lucaong/immutable`)
+
 ```crystal
 class Node(K, V)
   property levels : Int32   # 0 = leaf, >0 = internal
@@ -62,7 +64,7 @@ Result: **3.4 seconds for 11 specs** (27x faster than tagged-pointer approach).
 Start with the core concurrent surface first instead of porting Crystal
 Hash parity immediately:
 
-```
+```text
 Essential first:        Defer until core behavior is stable:
   load, store            select, reject, merge, transform, compact, invert,
   delete, clear          dig, fetch variants, key_for, has_value?, shift,
@@ -165,12 +167,14 @@ data structures. A design that compiles in 3 seconds vs 86 seconds is the
 difference between usable and abandoned.
 
 Factors that increase compilation time:
+
 - Number of `.as(GenericClass(K,V))` calls per generic type
 - Number of public methods on the generic type
 - Class hierarchy depth (virtual dispatch tables)
 - Loop body complexity (32-iteration loops × methods = many IR nodes)
 
 Factors that don't:
+
 - `Atomic(Pointer(Void))` operations themselves (simple atomic intrinsics)
 - Pointer arithmetic (cheap at the IR level)
 - Number of instances at runtime (runtime concern, not compile-time)
