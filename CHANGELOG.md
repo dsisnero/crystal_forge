@@ -5,6 +5,15 @@ All notable user-facing changes to this project will be documented in this file.
 Changes are grouped by release date and category. Only user-facing changes
 are included — internal refactors, test updates, and CI changes are omitted.
 
+## [Unreleased]
+
+### Fixed
+
+- Rust parity discovery now retains the native Chiasmus `function`, `class`, and
+  `interface` declarations emitted by strict tree-sitter discovery alongside the
+  historical `func`, `struct`, and `trait` labels, instead of silently dropping
+  them from generated source and test manifests.
+
 ## [1.9.0] - 2026-10-19
 
 ### Added

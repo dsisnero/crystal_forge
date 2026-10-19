@@ -44,6 +44,7 @@ Requires Python 3 and Ruby. Markdown and shell linting additionally use
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/cross-language-crystal-parity/tests -p 'test_*.py' -v
 ruby skills/cross-language-crystal-parity/tests/reconcile_parity_sidecars_test.rb
+ruby skills/cross-language-crystal-parity/tests/rust_native_kinds_test.rb
 python3 scripts/sync_workspace_skills.py --check
 rumdl check skills
 shellcheck -S warning skills/*/scripts/*.sh

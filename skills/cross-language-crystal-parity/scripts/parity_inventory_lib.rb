@@ -17,7 +17,8 @@ module ParityInventory
   DEFAULT_CURATED_KINDS = Set.new(%w[class const ctor enum func function interface method module record struct test trait type]).freeze
   CURATED_KINDS = {
     'go' => Set.new(%w[const struct type func method test]),
-    'rust' => Set.new(%w[const struct enum trait type func method test]),
+    # Keep the native Chiasmus labels alongside historical Rust extractor kinds.
+    'rust' => Set.new(%w[const struct enum trait type func function method test class interface]),
     'crystal' => Set.new(%w[class module struct enum const func method test]),
     'java' => Set.new(%w[class interface enum record const ctor func method test]),
     'ruby' => Set.new(%w[class module const func method test]),

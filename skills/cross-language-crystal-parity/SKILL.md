@@ -62,6 +62,24 @@ accepted. See `references/toolchain-resolution.md` for details.
 Available languages depend on the selected release's grammar bundle. The strict
 preflight checks that the requested language actually uses tree-sitter.
 
+### Curated kind vocabulary
+
+Each language's curated kind set decides which discovered declarations reach the
+generated manifests. Rust admits both vocabularies:
+
+| Native Chiasmus label | Declaration |
+| --- | --- |
+| `function` | free function |
+| `class` | struct or enum |
+| `interface` | trait |
+
+Keep the historical regex extractor labels (`func`, `struct`, `enum`, `trait`)
+alongside those native labels. Removing a historical label can drop IDs that
+existing curated ledgers already reference, and renaming native labels changes
+manifest IDs, so it is a versioned migration rather than an unannounced fix.
+Never copy the native discovery `status` column into a curated ledger: discovery
+identifies symbols, it does not sign off Crystal implementation.
+
 ## Scope and preflight
 
 Use `PORT_SCOPE_INCLUDE` (comma-separated roots relative to the upstream source)
