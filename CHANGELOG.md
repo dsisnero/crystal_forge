@@ -5,6 +5,28 @@ All notable user-facing changes to this project will be documented in this file.
 Changes are grouped by release date and category. Only user-facing changes
 are included — internal refactors, test updates, and CI changes are omitted.
 
+## [Unreleased]
+
+### Added
+
+- `check_port_inventory` now fails on a `crystal_refs` entry whose file no
+  longer exists. The ledger joins two churning trees, so a renamed, split or
+  deleted Crystal file otherwise leaves rows pointing nowhere with nothing to
+  notice — 522 stale paths and 22 dangling refs survived several releases in a
+  real port before this check. Line anchors stay advisory (the file is checked,
+  not the line).
+- `{{INVENTORY_COMMAND}}` placeholder and the ledger gate in
+  `templates.AGENTS.md`'s definition of done, plus the rule that the ledger is a
+  current-state artifact of the pinned baseline: re-base it at each release and
+  keep per-release history in `plans/inventory/v<NN>_delta_triage.tsv`.
+
+### Changed
+
+- `cross-language-crystal-parity`'s invariants state both rules, with the
+  measured cost of ignoring them (a v0.42-keyed ledger targeting v0.43 had 2,362
+  stale and 2,188 absent rows — 39% still matched), and the drift checks are
+  described as gates rather than release-time chores.
+
 ## [1.10.0] - 2026-10-19
 
 ### Added

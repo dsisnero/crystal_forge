@@ -91,7 +91,7 @@ project's values:
 | `{{PARITY_PLAN}}` | curated plan path | `plans/parity.md` |
 | `{{PARITY_PLAN_DIR}}` | plan split directory | `plans` |
 | `{{INVENTORY_DIR}}` | ledger directory | `plans/inventory` |
-| `{{LINT_COMMAND}}` / `{{TEST_COMMAND}}` | real gates | `make lint` / `make test` |
+| `{{LINT_COMMAND}}` / `{{TEST_COMMAND}}` / `{{INVENTORY_COMMAND}}` | real gates | `make lint` / `make test` / `make inventory` |
 | `{{INSTALL_HINT}}`, `{{UPDATE_HINT}}`, `{{FORMAT_HINT}}`, `{{LINT_HINT}}`, `{{TEST_HINT}}`, `{{CLEAN_HINT}}` | what each make target does | `shards install` |
 
 The `parity_plan.md` template also carries content placeholders

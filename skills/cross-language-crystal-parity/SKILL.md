@@ -211,6 +211,16 @@ port: JobExecutor execute, SubscriptionManager
 
 ### 5. Re-run drift checks continuously
 
+Wire these into the repo's own gates (a `make inventory` target plus the
+definition of done) — a check that only runs at release time does not run. The
+inventory check also fails on a `crystal_refs` entry whose file no longer
+exists, which is the failure mode that silently accumulates whenever this repo's
+own files move.
+
+When the pinned upstream release changes, **re-base** the ledger rather than
+appending to it, and write the release's added/modified/deleted symbols to
+`plans/inventory/v<NN>_delta_triage.tsv`.
+
 ```bash
 "${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv <source_path> <language>
 "${SKILL_DIR}/scripts/check_source_parity.sh" . plans/inventory/<language>_source_parity.tsv <source_path> <language>

@@ -10,8 +10,12 @@ back to a known-good state.
   notes or gotchas, plus the last commit and current gate results. Do not
   re-derive state from git history.
 - `{{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv` — the per-symbol
-  ledger (status + `crystal_refs`). Use it to see what is left inside the
-  current chunk:
+  ledger (status + `crystal_refs`), keyed to the baseline in its own leading
+  `# baseline=` comment and re-based when the target release changes; the
+  per-release history is `{{INVENTORY_DIR}}/v<NN>_delta_triage.tsv`. Run
+  `{{INVENTORY_COMMAND}}` before trusting it: it fails on a stale row and on a
+  `crystal_refs` file that no longer exists. Use it to see what is left inside
+  the current chunk:
 
   ```bash
   tail -n +2 {{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv \

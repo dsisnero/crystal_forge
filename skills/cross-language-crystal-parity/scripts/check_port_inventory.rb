@@ -66,6 +66,21 @@ ParityInventory.load_manifest_rows(manifest, min_cols: 5).each do |cols|
   if %w[ported partial].include?(status) && refs.to_s.empty?
     errors << "crystal_refs required when status=#{status} for #{id}"
   end
+
+  # The ledger joins two trees that both churn, so its Crystal half rots
+  # silently: a file renamed, split or deleted leaves the row pointing nowhere
+  # and nothing notices. Every ref must name a file that exists today. Line
+  # anchors (`path:12-18`) are advisory and are not compared — they rot within a
+  # single release.
+  refs.to_s.split(",").map(&:strip).each do |ref|
+    next if ref.empty? || ref == "-"
+
+    path = ref.split(":").first
+    next if path.nil? || path.empty?
+    next if File.exist?(File.join(options[:root_dir], path))
+
+    errors << "crystal_refs names a missing file for #{id}: #{path}"
+  end
 end
 
 unless errors.empty?

@@ -62,6 +62,11 @@ See [docs/resuming.md](docs/resuming.md) for the full resume checklist.
 - Work items are feature-sized (roughly one branch/commit). Per-symbol state
   lives in `{{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv`, not in
   the plan.
+- The ledger is a **current-state** artifact of the pinned baseline (say so in
+  its leading `# baseline=` comment). Re-base it when the target release
+  changes; never append across versions. Per-release history belongs in
+  `{{INVENTORY_DIR}}/v<NN>_delta_triage.tsv` — one file per release, never
+  edited afterwards.
 - If `{{PARITY_PLAN}}` grows too large, split it into `{{PARITY_PLAN_DIR}}/<area>.md`
   files, link each from `{{PARITY_PLAN}}`, and mark each split file
   complete/in-progress plus the file being worked on next.
@@ -73,9 +78,13 @@ must be committed as **one** atomic commit before starting the next feature:
 
 1. the API surface is implemented;
 2. upstream tests (or equivalent characterization specs) exist and pass;
-3. gates pass: `{{LINT_COMMAND}}` and `{{TEST_COMMAND}}`;
+3. gates pass: `{{LINT_COMMAND}}`, `{{TEST_COMMAND}}`, and
+   `{{INVENTORY_COMMAND}}`;
 4. parity inventory rows for the feature are updated
-   (`{{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv`);
+   (`{{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv`) and
+   `{{INVENTORY_COMMAND}}` passes — it checks every row against the pinned tree
+   *and* that each `crystal_refs` file still exists, which is the half that rots
+   when this repo's own files move;
 5. `{{PARITY_PLAN}}` status is updated and the **Where we are** block refreshed
    (current focus + next up);
 6. any intentional divergence is documented (in `{{PARITY_PLAN}}` and/or the
