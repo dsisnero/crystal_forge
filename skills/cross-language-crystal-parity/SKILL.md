@@ -10,8 +10,8 @@ upstream languages: `go`, `rust`, `crystal`, `java`, `csharp`, `ruby`,
 `typescript`/`javascript`, and `python`. The workflow is grammar-driven: any
 language with an available tree-sitter grammar (bundled in `chiasmus-discover`,
 `CHIASMUS_GRAMMAR_DIR`, or a repo-local `./grammars`) works without editing the
-skill. The hard-coded language lists are only the regex fallback for languages
-without a grammar.
+skill. Regex extractor lists and curated-kind filters are language-specific;
+inspect both when adopting a new native discovery vocabulary.
 
 Read `references/usage-guidelines.md` or `references/invariants.md` only when
 you need the extra detail.
@@ -104,6 +104,32 @@ existing curated ledgers already reference, and renaming native labels changes
 manifest IDs, so it is a versioned migration rather than an unannounced fix.
 Never copy the native discovery `status` column into a curated ledger: discovery
 identifies symbols, it does not sign off Crystal implementation.
+
+### Existing repositories with copied parity scripts
+
+Inspect the script actually invoked by the repository before diagnosing a parser
+failure. Older copied `scripts/parity_inventory_lib.rb` versions contain a
+placeholder `tree-sitter` branch that still calls `discover_with_regex`; their
+`PORT_PARSER=tree-sitter` mode may warn and exit successfully. Installing the
+Ruby `tree_sitter` gem changes the warning, not extraction. Use this skill's
+canonical scripts directly, or deliberately migrate the repository's wrappers
+to them. Do not call a repository gate blocked when its regex check exits zero.
+
+Confirm the effective backend with `PARITY_DISCOVERY_BACKEND` and the generated
+manifest's `.metadata.json`; a requested parser mode does not prove which
+extractor ran. In the canonical scripts, explicit `tree-sitter` mode requires a
+verified `chiasmus-discover` toolchain and fails if it cannot run. `auto` can
+fall back to regex, so pin `PORT_PARSER=regex` when maintaining a ledger created
+with that vocabulary until a reviewed migration is complete.
+
+For Go, native discovery currently has different kinds and granularity from
+the historical regex ledger: `function` versus `func`, `class` versus `struct`,
+and duplicate or auxiliary declarations. It can also merge standalone `const`
+and `type` declarations into `definition.type`, so a simple kind rename cannot
+reconstruct the original IDs. Treat native results as a separate exploratory
+manifest until source-aware classification, deduplication, and an explicit ID
+migration preserve the curated coverage. Do not copy native IDs into the
+existing ledger or interpret vocabulary drift as missing ported behavior.
 
 ## Scope and preflight
 
