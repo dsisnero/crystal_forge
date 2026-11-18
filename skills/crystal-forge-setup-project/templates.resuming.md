@@ -37,9 +37,16 @@ atomically. If the tree is dirty, finish or stash before starting.
 ```bash
 {{LINT_COMMAND}}
 {{TEST_COMMAND}}
+PARITY_SKILL_DIR="{{PARITY_SKILL_DIR}}"
+"${PARITY_SKILL_DIR}/scripts/verify_skill_install.sh" . {{SOURCE_LANGUAGE}} {{PARITY_PARSER}}
+PORT_PARSER={{PARITY_PARSER}} {{INVENTORY_COMMAND}}
 ```
 
-Both must pass before changing anything.
+Lint and tests must pass before changing anything. Run the inventory gate
+and compare any drift with the **Where we are** block; recorded upstream drift
+may be the next feature to fix. Confirm the command uses the installed skill
+scripts and that its reported backend matches the ledger policy in `AGENTS.md`;
+inspect `.metadata.json` when regenerating manifests.
 
 ## 4. Pick the next feature
 

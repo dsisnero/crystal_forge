@@ -237,6 +237,7 @@ class ResolveToolchainTest(unittest.TestCase):
         result = subprocess.run(["bash", str(SCRIPT.with_name("verify_skill_install.sh")), str(repo), "java", "tree-sitter"],
                                 env=env, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PARITY_DISCOVERY_BACKEND=chiasmus-tree-sitter", result.stdout)
         self.assertIn(str(stage / "chiasmus-discover"), result.stdout)
 
     def test_inventory_library_does_not_select_unverified_repo_binary(self) -> None:

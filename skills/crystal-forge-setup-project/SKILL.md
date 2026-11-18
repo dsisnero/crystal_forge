@@ -65,6 +65,12 @@ state without reading git history:
   plan refresh, and divergence-documentation requirements;
 - the commit message convention (`port: <feature>` plus bullets and the pin).
 
+For porting repos, add the **Parity tooling** section from the template.
+Identify the active installed cross-language parity skill directory, select
+the parser mode that produced the curated ledger, and verify that the inventory
+gate calls current canonical scripts rather than copied Ruby helpers. Keep the
+corresponding preflight in `docs/resuming.md`.
+
 For porting repos, also install `docs/resuming.md` from
 `templates.resuming.md` and track the plan with
 `cross-language-crystal-parity` (its `templates/parity_plan.md` provides the
@@ -88,6 +94,8 @@ project's values:
 | `{{UPSTREAM_COMMIT}}` | pinned commit SHA | `ef1fa157...` |
 | `{{VENDOR_PATH}}` | upstream checkout path | `vendor/arrow-rs` |
 | `{{SOURCE_LANGUAGE}}` | inventory language prefix | `rust` |
+| `{{PARITY_SKILL_DIR}}` | active canonical parity skill directory | `${HOME}/.agents/skills/crystal_forge/skills/cross-language-crystal-parity` |
+| `{{PARITY_PARSER}}` | parser mode used by the curated ledger | `regex` or `tree-sitter` |
 | `{{PARITY_PLAN}}` | curated plan path | `plans/parity.md` |
 | `{{PARITY_PLAN_DIR}}` | plan split directory | `plans` |
 | `{{INVENTORY_DIR}}` | ledger directory | `plans/inventory` |
@@ -163,3 +171,6 @@ Confirm all of the following:
    section, a **Definition of done**, and the commit message convention, and
    every path/command in them is real for this repo.
 7. No placeholder tokens (`{{...}}`) remain in `AGENTS.md`/`CLAUDE.md`.
+8. For a port, the inventory gate resolves to the active canonical parity skill
+   scripts or forwarding wrappers. Its verified backend and manifest metadata
+   match the parser policy recorded in the entrypoint.

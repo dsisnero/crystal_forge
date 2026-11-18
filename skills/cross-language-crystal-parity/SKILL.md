@@ -145,6 +145,15 @@ when no discovery binary is available; `tree-sitter` fails instead.
 
 ## Canonical script execution
 
+When adopting the skill in a porting repository, add a **Parity tooling** section
+to its `AGENTS.md` (and the matching `docs/resuming.md` step). Name the current
+installed skill directory, the parser mode used by the curated ledger, and the
+inventory command. Require that command to invoke the installed skill's current
+scripts directly or through forwarding wrappers, never a copied implementation.
+The `crystal-forge-setup-project/templates.AGENTS.md` template contains the
+starter section. Retrofit existing entrypoints as well as new ones; installing
+a newer skill does not rewrite a repository's copied scripts or instructions.
+
 Run scripts from this canonical skill directory. Do not copy them into a target
 repo or maintain a second installed script snapshot: both drift and become
 stale. If a Codex-installed skill needs these scripts, point its `scripts/`

@@ -56,5 +56,10 @@ else
   binary_id="path:${discover_bin}"
 fi
 echo "PARITY_SKILL_VERIFIED=1"
+if [[ "${PARSER}" == "tree-sitter" ]]; then
+  echo "PARITY_DISCOVERY_BACKEND=chiasmus-tree-sitter"
+else
+  echo "PARITY_DISCOVERY_BACKEND=not-probed"
+fi
 echo "PARITY_DISCOVERY_BINARY=${discover_bin}"
 echo "PARITY_DISCOVERY_BINARY_ID=${binary_id}"

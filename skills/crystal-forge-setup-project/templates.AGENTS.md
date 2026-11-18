@@ -41,6 +41,30 @@ targets, and keep the placeholder names above out of the file.
 4. Track parity in `{{PARITY_PLAN}}` and `{{INVENTORY_DIR}}/`.
 5. Commit one completed feature at a time.
 
+## Parity tooling
+
+The active cross-language parity skill is `{{PARITY_SKILL_DIR}}`. Run its
+current `scripts/` directly; `{{INVENTORY_COMMAND}}` must invoke those scripts
+or a thin forwarding wrapper, never a copied parity implementation. Check the
+command's target when first adopting this skill or when inventory behavior
+changes. Updating the installed skill does not update copied repository scripts.
+
+The curated ledger uses `{{PARITY_PARSER}}` discovery vocabulary. Keep that
+mode for its regular gate until a reviewed manifest and ID migration changes
+it. Before relying on discovery, run:
+
+```bash
+PARITY_SKILL_DIR="{{PARITY_SKILL_DIR}}"
+"${PARITY_SKILL_DIR}/scripts/verify_skill_install.sh" . {{SOURCE_LANGUAGE}} {{PARITY_PARSER}}
+PORT_PARSER={{PARITY_PARSER}} {{INVENTORY_COMMAND}}
+```
+
+Check `PARITY_DISCOVERY_BACKEND` in the gate output and, when manifests are
+regenerated, `backend` in their `.metadata.json` files. A requested parser mode or installed Ruby gem
+does not prove tree-sitter ran. A `regex` ledger may remain the authoritative
+gate while native discovery is evaluated separately. Chiasmus binary releases
+are resolved by the installed skill; they are distinct from the skill scripts.
+
 ## Session continuity (read this first)
 
 `{{PARITY_PLAN}}` is the single source of truth for where we are. At the start
@@ -50,8 +74,9 @@ of every session:
    focus, the ordered "Next up" list, and per-area chunk status. Do not
    re-derive state from git history.
 2. Skim `git log --oneline -10` and `git status` to confirm the working tree.
-3. Run `{{LINT_COMMAND}}` and `{{TEST_COMMAND}}` before changes to confirm a
-   clean baseline.
+3. Confirm the **Parity tooling** command uses the installed skill scripts
+   and the ledger's parser mode, then run `{{LINT_COMMAND}}`,
+   `{{TEST_COMMAND}}`, and `{{INVENTORY_COMMAND}}` before changes.
 
 See [docs/resuming.md](docs/resuming.md) for the full resume checklist.
 
