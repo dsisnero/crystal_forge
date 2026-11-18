@@ -7,6 +7,8 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-17
+
 ### Added
 
 - `check_port_inventory` now fails on a `crystal_refs` entry whose file no
@@ -19,6 +21,13 @@ are included — internal refactors, test updates, and CI changes are omitted.
   `templates.AGENTS.md`'s definition of done, plus the rule that the ledger is a
   current-state artifact of the pinned baseline: re-base it at each release and
   keep per-release history in `plans/inventory/v<NN>_delta_triage.tsv`.
+- `{{PARITY_SKILL_DIR}}` and `{{PARITY_PARSER}}` placeholders and a **Parity
+  tooling** section in `templates.AGENTS.md`, so a generated port repo runs the
+  installed skill's own scripts and records which discovery vocabulary its
+  ledger uses instead of inheriting a silent copy.
+- `verify_skill_install.sh` reports `PARITY_DISCOVERY_BACKEND`, because a
+  requested parser mode and an installed grammar gem do not prove tree-sitter
+  ran.
 
 ### Changed
 
@@ -26,6 +35,10 @@ are included — internal refactors, test updates, and CI changes are omitted.
   measured cost of ignoring them (a v0.42-keyed ledger targeting v0.43 had 2,362
   stale and 2,188 absent rows — 39% still matched), and the drift checks are
   described as gates rather than release-time chores.
+- Port entrypoints warn that older copied `parity_inventory_lib.rb` versions
+  keep a `tree-sitter` branch that still calls `discover_with_regex`; such a run
+  can warn and exit successfully while emitting regex ids. Diagnose the script
+  actually invoked, not the mode requested.
 
 ## [1.10.0] - 2026-10-19
 
