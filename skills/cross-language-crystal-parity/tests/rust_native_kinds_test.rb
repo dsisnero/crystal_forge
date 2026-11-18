@@ -18,7 +18,7 @@ class RustNativeKindsTest < Minitest::Test
                                     '--root', root, '--source', 'upstream', '--language', 'rust',
                                     '--parser', 'regex', '--out', source)
       assert status.success?, "#{out}\n#{err}"
-      ids = File.readlines(source).drop(1).map { |line| line.split("\t", 2).first }
+      ids = manifest_rows(source).map(&:first)
       %w[func struct enum trait const method].each do |kind|
         assert ids.any? { |id| id.include?("::#{kind}::") }, "missing historical #{kind} from source manifest"
       end
@@ -28,7 +28,7 @@ class RustNativeKindsTest < Minitest::Test
                                     '--root', root, '--source', 'upstream', '--language', 'rust',
                                     '--parser', 'regex', '--out', tests)
       assert status.success?, "#{out}\n#{err}"
-      test_ids = File.readlines(tests).drop(1).map { |line| line.split("\t", 2).first }
+      test_ids = manifest_rows(tests).map(&:first)
       assert_includes test_ids, 'src/lib.rs::test::smoke'
 
       out, err, status = run_script('check_source_parity.rb',
@@ -57,7 +57,7 @@ class RustNativeKindsTest < Minitest::Test
       assert status.success?, "#{out}\n#{err}"
       assert_includes err, 'PARITY_DISCOVERY_BACKEND=chiasmus-tree-sitter'
 
-      rows = File.readlines(source).drop(1).map { |line| line.chomp.split("\t") }
+      rows = manifest_rows(source)
       ids = rows.map(&:first)
       %w[
         src/lib.rs::const::VALUE
@@ -90,6 +90,10 @@ class RustNativeKindsTest < Minitest::Test
   end
 
   private
+
+  def manifest_rows(path)
+    File.readlines(path, chomp: true).reject { |line| line.start_with?('#') }.map { |line| line.split("\t") }
+  end
 
   def with_fixture
     Dir.mktmpdir('rust-native-kinds-') do |root|

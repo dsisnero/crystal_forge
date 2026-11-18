@@ -90,18 +90,19 @@ preflight checks that the requested language actually uses tree-sitter.
 ### Curated kind vocabulary
 
 Each language's curated kind set decides which discovered declarations reach the
-generated manifests. Rust admits both vocabularies:
+generated manifests. Go and Rust admit both native and historical vocabularies.
 
-| Native Chiasmus label | Declaration |
-| --- | --- |
-| `function` | free function |
-| `class` | struct or enum |
-| `interface` | trait |
+| Native Chiasmus label | Go declaration | Rust declaration |
+| --- | --- | --- |
+| `function` | free function | free function |
+| `class` | struct | struct or enum |
+| `interface` | interface | trait |
 
-Keep the historical regex extractor labels (`func`, `struct`, `enum`, `trait`)
-alongside those native labels. Removing a historical label can drop IDs that
-existing curated ledgers already reference, and renaming native labels changes
-manifest IDs, so it is a versioned migration rather than an unannounced fix.
+Go retains the historical regex labels `func`, `struct`, and `type`. Rust retains
+`func`, `struct`, `enum`, and `trait`. The Go curated defaults exclude auxiliary
+captures such as `definition.type`, `field`, `package`, and `reference.call`.
+Removing historical labels or renaming native labels changes which IDs can
+appear in a manifest. Treat those changes as migrations.
 Never copy the native discovery `status` column into a curated ledger: discovery
 identifies symbols, it does not sign off Crystal implementation.
 
@@ -122,14 +123,13 @@ verified `chiasmus-discover` toolchain and fails if it cannot run. `auto` can
 fall back to regex, so pin `PORT_PARSER=regex` when maintaining a ledger created
 with that vocabulary until a reviewed migration is complete.
 
-For Go, native discovery currently has different kinds and granularity from
-the historical regex ledger: `function` versus `func`, `class` versus `struct`,
-and duplicate or auxiliary declarations. It can also merge standalone `const`
-and `type` declarations into `definition.type`, so a simple kind rename cannot
-reconstruct the original IDs. Treat native results as a separate exploratory
-manifest until source-aware classification, deduplication, and an explicit ID
-migration preserve the curated coverage. Do not copy native IDs into the
-existing ledger or interpret vocabulary drift as missing ported behavior.
+For new Go manifests, strict discovery retains the native declarations listed
+above alongside `const` and `method`. To migrate an existing regex-based Go
+ledger, generate a separate native candidate and review it against the curated
+baseline. Named types such as `type Counter int` can appear only as
+`definition.type`, which is outside the curated defaults. Audit these types
+and review any duplicate captures before mapping IDs to preserve curated
+coverage and implementation status.
 
 ## Scope and preflight
 
@@ -137,6 +137,14 @@ Use `PORT_SCOPE_INCLUDE` (comma-separated roots relative to the upstream source)
 and `PORT_SCOPE_EXCLUDE` (comma-separated relative globs) to make a workspace
 scope explicit. Every generated TSV has a sibling `.metadata.json` recording
 the effective backend, discovery command, and effective scope.
+
+New source parity manifests and port inventories declare their complete curated
+source-kind scope in a `# kinds=` comment. The checkers use the declared kinds
+even when a kind has no rows in the manifest. Keep the comment when editing
+rows so the checker detects new declarations and deletions of the last row of
+a tracked kind. Existing ledgers without a kind header continue to infer kinds
+from their IDs. To retain a reviewed narrower scope explicitly, list its kinds
+separated by commas in one comment, for example `# kinds=class,const`.
 
 Run `scripts/verify_skill_install.sh <target-root> <language> tree-sitter`
 before a strict downstream refresh. It verifies wrapper permissions and executes

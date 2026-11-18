@@ -18,8 +18,8 @@ back to a known-good state.
   the current chunk:
 
   ```bash
-  tail -n +2 {{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv \
-    | cut -f3 | sort | uniq -c
+  awk -F '\t' '!/^#/ && NF {print $3}' \
+    {{INVENTORY_DIR}}/{{SOURCE_LANGUAGE}}_port_inventory.tsv | sort | uniq -c
   ```
 
 ## 2. Confirm the working tree

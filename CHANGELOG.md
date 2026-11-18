@@ -7,6 +7,13 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+### Fixed
+
+- Go parity manifests retain native `class`, `function`, and `interface`
+  declarations alongside the historical regex kinds. Generated source parity
+  manifests and port inventories declare their kind scope in a `# kinds=`
+  comment so drift checks detect a new kind or a missing final row of a kind.
+
 ## [1.11.0] - 2026-11-17
 
 ### Added

@@ -62,7 +62,8 @@ ParityInventory.write_scope_manifest(
   source_items,
   scope: "source",
   header_id: "source_api_id",
-  notes_overrides: notes_overrides
+  notes_overrides: notes_overrides,
+  kinds: ParityInventory.curated_kinds(language) - ["test"]
 )
 ParityInventory.write_discovery_metadata(out)
 puts "Generated #{out} (#{source_items.length} source API items) from #{base}."

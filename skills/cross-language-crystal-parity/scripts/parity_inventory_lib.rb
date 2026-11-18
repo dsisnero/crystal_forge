@@ -16,7 +16,7 @@ module ParityInventory
   # entries can narrow it.
   DEFAULT_CURATED_KINDS = Set.new(%w[class const ctor enum func function interface method module record struct test trait type]).freeze
   CURATED_KINDS = {
-    'go' => Set.new(%w[const struct type func method test]),
+    'go' => Set.new(%w[class const func function interface method struct test type]),
     # Keep the native Chiasmus labels alongside historical Rust extractor kinds.
     'rust' => Set.new(%w[const struct enum trait type func function method test class interface]),
     'crystal' => Set.new(%w[class module struct enum const func method test]),
@@ -321,24 +321,34 @@ module ParityInventory
     parts[1]
   end
 
-  def curated_inventory_items(items, language:)
-    allowed = CURATED_KINDS.fetch(language, DEFAULT_CURATED_KINDS)
+  def curated_kinds(language)
+    CURATED_KINDS.fetch(language, DEFAULT_CURATED_KINDS)
+  end
 
+  def curated_inventory_items(items, language:)
+    allowed = curated_kinds(language)
     dedupe_items(items.select { |item| allowed.include?(item.kind) })
   end
 
   def manifest_kinds(path)
-    kinds = Set.new
-    load_manifest_rows(path, min_cols: 1).each do |cols|
-      kind = kind_from_id(cols[0])
-      kinds << kind if kind
+    headers = read_utf8_lines(path, chomp: true).grep(/\A# kinds=/)
+    if headers.empty?
+      return load_manifest_rows(path, min_cols: 1).map { |cols| kind_from_id(cols[0]) }.compact.to_set
     end
-    kinds
+
+    raise ArgumentError, "Duplicate # kinds= header in #{path}" if headers.length > 1
+
+    kinds = headers.first.delete_prefix('# kinds=').split(',', -1).map(&:strip)
+    unless kinds.any? && kinds.all? { |kind| kind.match?(/\A[[:alnum:]_.-]+\z/) }
+      raise ArgumentError, "Invalid # kinds= header in #{path}: expected a comma-separated list of kinds"
+    end
+
+    kinds.to_set
   end
 
   def filter_items_for_manifest(items, manifest_path:, language:)
     tracked_kinds = manifest_kinds(manifest_path)
-    tracked_kinds = CURATED_KINDS.fetch(language, DEFAULT_CURATED_KINDS) if tracked_kinds.empty?
+    tracked_kinds = curated_kinds(language) if tracked_kinds.empty?
     dedupe_items(items.select { |item| tracked_kinds.include?(item.kind) })
   end
 
@@ -793,20 +803,22 @@ module ParityInventory
     [source, tests]
   end
 
-  def write_inventory(path, items)
+  def write_inventory(path, items, kinds:)
     FileUtils.mkdir_p(File.dirname(path))
     File.open(path, 'w') do |f|
       f.puts "# source_id\tkind\tstatus\tcrystal_refs\tnotes"
+      f.puts "# kinds=#{kinds.sort.join(',')}"
       items.each do |item|
         f.puts "#{item.id}\t#{item.kind}\tmissing\t-\tauto-generated"
       end
     end
   end
 
-  def write_scope_manifest(path, items, scope:, header_id:, notes_overrides: {})
+  def write_scope_manifest(path, items, scope:, header_id:, notes_overrides: {}, kinds: nil)
     FileUtils.mkdir_p(File.dirname(path))
     File.open(path, 'w') do |f|
       f.puts "# #{header_id}\tstatus\tcrystal_refs\tnotes"
+      f.puts "# kinds=#{kinds.sort.join(',')}" if kinds
       items.select { |item| item.scope == scope }
            .sort_by(&:id)
            .each do |item|

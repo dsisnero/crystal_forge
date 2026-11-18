@@ -35,6 +35,9 @@
 2. Use `-` as explicit placeholder for unfilled fields.
 3. Source/test manifests must track current upstream discoverable IDs.
 4. Regeneration of existing manifests requires explicit force intent.
+5. Preserve the `# kinds=` header in source parity manifests and port
+   inventories. The declared kinds govern drift checks independently of the
+   data rows. Headerless manifests infer kinds from their IDs.
 
 ## Naming-Drift Invariants
 

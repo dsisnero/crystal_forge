@@ -78,7 +78,7 @@ if items.empty?
   exit 1
 end
 
-ParityInventory.write_inventory(out, items)
+ParityInventory.write_inventory(out, items, kinds: ParityInventory.curated_kinds(language) - ['test'])
 ParityInventory.write_discovery_metadata(out)
 count = items.length
 puts "Generated #{out} (#{count} items) from #{base}."
