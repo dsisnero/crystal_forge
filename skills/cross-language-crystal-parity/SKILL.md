@@ -66,9 +66,8 @@ Use `templates/parity_plan.md` when the plan does not exist yet, and
 - `scripts/migrate_crystal_refs.py` (file refs -> symbol refs)
 - `scripts/vendor_drift.py` (per-declaration vendor bump report)
 
-The three Python tools resolve `chiasmus-discover` / `chiasmus-facts` through
-`resolve_toolchain.py`, exactly like the shell wrappers, and accept an explicit
-`--discover-bin` / `--facts-bin` override for local work.
+The Python tools resolve `chiasmus-discover` / `chiasmus-facts` through
+`resolve_toolchain.py` like the wrappers; `--discover-bin` / `--facts-bin` override.
 
 ## Parser mode
 
@@ -122,10 +121,9 @@ python3 "${SKILL_DIR}/scripts/check_kind_vocabulary.py" \
   --scan rust=vendor/upstream/crates/core/src --scan go=vendor/upstream
 ```
 
-A non-empty `dropped` list means a whole category is missing from the manifests
-and the counts say how many rows. Prove the gate itself by re-running it with
-`--curated-override rust=const,struct,enum,trait,type,func,method,test`; it must
-report the drops (the historical `function`/`class`/`interface` gap).
+A non-empty `dropped` list means a whole category is missing from the manifests.
+Prove the gate with `--curated-override rust=const,struct,enum,trait,type,func,method,test`:
+it must report the historical `function`/`class`/`interface` gap.
 
 ### Existing repositories with copied parity scripts
 
@@ -408,14 +406,13 @@ clobbering curated work:
        --out plans/inventory/<version>_delta_symbols.tsv
      ```
 
-     It reports added / removed / moved declarations with visibility, the phase
-     inherited from the path triage, and the ledger status — including rows that
-     still claim `ported` for declarations upstream deleted.
+     Per-declaration rows carry visibility, the phase from the path triage, and
+     the ledger status — including rows still claiming `ported` for declarations
+     upstream deleted.
 
    - **Per fact** (what the call graph sees): `chiasmus-plan refresh
-     --previous-facts <previous>.pl`, then review `maps.tsv` (new
-     `unmapped_source` / `ambiguous`), `surfaces.tsv` (new arity drift), and
-     `divergences.tsv` (new `falsely_missing` / `falsely_ported`).
+     --previous-facts <previous>.pl`, then review `maps.tsv`, `surfaces.tsv`, and
+     `divergences.tsv` for new unmapped, arity, and falsely-* rows.
 
 5. Update the curated ledger rows and `plans/parity.md` for the changes, then
    re-run adversarial signoff:
@@ -441,46 +438,40 @@ Allowed `port_inventory` statuses:
 Rules:
 
 - `partial` and `ported` rows must include `crystal_refs`.
-
-### Crystal refs
-
-Accepted forms, comma-separated when one row maps to several places:
-
-| Form | Example | Checked |
-| --- | --- | --- |
-| file | `src/tea/clipboard.cr` | file exists |
-| file + line anchor (advisory) | `src/tea/clipboard.cr:68-70` | file exists; lines are never compared |
-| file + symbol | `src/tea/clipboard.cr::method::Bubbletea.read_clipboard` | file exists, syntax, and (with `--crystal-source`) that discovery emits the id |
-
-The `::` form is the discovery id prefixed with the repo-relative path, so a row
-can be validated instead of trusted. It also survives `check_port_inventory`'s
-file check, because the file half is what `split(":")` returns.
-
-Migrate file refs mechanically; never hand-edit a 4,000-row ledger:
-
-```bash
-python3 "${SKILL_DIR}/scripts/migrate_crystal_refs.py" \
-  --ledger plans/inventory/<language>_port_inventory.tsv \
-  --port-dir src --port-dir spec --port-root . \
-  --out plans/inventory/<language>_port_inventory.migrated.tsv
-```
-
-It stages every row (qualified name in file, bare name in file, symbol elsewhere,
-unresolved) and refuses to guess. Unresolved rows are usually **many-to-one
-collapse**: 150 upstream accessors realized by a handful of Crystal methods.
-Either point those rows at the one symbol or keep the file ref and mark the row
-`aggregate` in `notes`; do not leave the decision implicit.
-
-Validate symbol refs in the gate once the ledger carries them:
-
-```bash
-"${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv \
-  <source_path> <language>   # add PORT_CRYSTAL_SOURCE=src to verify symbols
-```
 - Use `-` for intentionally unfilled TSV cells; do not leave empty columns.
 - Record naming differences and Crystal-native replacements in `notes`.
 - Keep deterministic source notes in `<language>_source_notes.tsv` if they must
   survive regeneration.
+
+### Crystal refs
+
+Comma-separate when one row maps to several places:
+
+| Form | Example | Checked |
+| --- | --- | --- |
+| file | `src/tea/clipboard.cr` | file exists |
+| file + line anchor (advisory) | `src/tea/clipboard.cr:68-70` | file exists; lines never compared |
+| file + symbol | `src/tea/clipboard.cr::method::Bubbletea.read_clipboard` | file, syntax, and with `--crystal-source` the discovered id |
+
+The `::` form is the discovery id prefixed with the repo-relative path, so a row
+is validated rather than trusted; the file half is what `split(":")` returns, so
+the existing check keeps working.
+
+```bash
+python3 "${SKILL_DIR}/scripts/migrate_crystal_refs.py" \
+  --ledger plans/inventory/<language>_port_inventory.tsv \
+  --port-dir src --port-dir spec --out plans/inventory/<language>_port_inventory.migrated.tsv
+```
+
+It stages every row and refuses to guess. Unresolved rows are usually
+**many-to-one collapse** (150 upstream accessors realized by a few Crystal
+methods): point them at the one symbol, or keep the file ref and mark the row
+`aggregate` in `notes`.
+
+```bash
+"${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv \
+  <source_path> <language>   # PORT_CRYSTAL_SOURCE=src also verifies symbols
+```
 
 ## Feature slicing rules
 
