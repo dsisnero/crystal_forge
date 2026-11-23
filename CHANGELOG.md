@@ -7,6 +7,17 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-11-23
+
+### Fixed
+
+- `check_kind_vocabulary.py` treats TypeScript `field_prop` (interface and
+  object-type property signatures) as auxiliary, next to `field`. The extractor
+  emits it for every interface member, so a TypeScript gate reported 479
+  "dropped" rows that no ledger ever tracked — the misleading kind of finding
+  that makes a gate ignorable.
+
+
 ## [1.12.3] - 2026-11-23
 
 ### Changed

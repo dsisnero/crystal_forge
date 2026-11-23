@@ -102,6 +102,19 @@ class CheckKindVocabularyTest(unittest.TestCase):
         self.assertIn("from 2 roots", result.stdout)
         self.assertIn("4 auxiliary rows ignored", result.stdout)
 
+    def test_typescript_field_props_are_auxiliary(self) -> None:
+        (self.scan_dir / "kinds.txt").write_text(
+            "class 1\nfield_prop 3\nfield 2\n", encoding="utf-8"
+        )
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--discover-bin", str(self.discover),
+             "--skill-lib", str(self.skill_lib), "--scan", f"rust={self.scan_dir}"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("5 auxiliary rows ignored", result.stdout)
+        self.assertIn("1 declarations in 1 kinds", result.stdout)
+
     def test_emit_prolog_quotes_dotted_atoms(self) -> None:
         result = self.run_check("--emit-prolog")
         self.assertIn("auxiliary('reference.call').", result.stdout)

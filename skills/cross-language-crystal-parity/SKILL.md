@@ -103,12 +103,12 @@ generated manifests. Go and Rust admit both native and historical vocabularies.
 | `interface` | interface | trait |
 
 Go retains the historical regex labels `func`, `struct`, and `type`. Rust retains
-`func`, `struct`, `enum`, and `trait`. The Go curated defaults exclude auxiliary
-captures such as `definition.type`, `field`, `package`, and `reference.call`.
+`func`, `struct`, `enum`, and `trait`. Curated defaults exclude auxiliary captures:
+`definition.type`, `field`, `field_prop` (TypeScript interface properties),
+`package`, `reference.call`.
 Removing historical labels or renaming native labels changes which IDs can
 appear in a manifest. Treat those changes as migrations.
-Never copy the native discovery `status` column into a curated ledger: discovery
-identifies symbols, it does not sign off Crystal implementation.
+Never copy discovery's `status` column into a curated ledger; it identifies symbols, not implementation status.
 
 The split matters because discovery writes declaration rows and auxiliary rows
 into the same TSV. A curated set can only drop declarations, so run the gate

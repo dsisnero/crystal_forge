@@ -41,7 +41,13 @@ DEFAULT_SKILL_LIB = SCRIPT_DIR / "parity_inventory_lib.rb"
 # Rows about a declaration rather than declarations. Dotted kinds are namespaced
 # auxiliaries by construction, so they are classified structurally instead of
 # being enumerated forever.
-AUXILIARY_KINDS = {"params", "return_type", "field", "package"}
+AUXILIARY_KINDS = {
+    "params",        # parameter lists
+    "return_type",   # return types
+    "field",         # class fields (Go, TypeScript class_body)
+    "field_prop",    # TypeScript interface / object_type property signatures
+    "package",       # Go package rows
+}
 
 
 def is_auxiliary(kind: str, extra: set[str]) -> bool:
