@@ -46,10 +46,8 @@ state instead of leaving it in git history or chat:
 - Repo-level rules (gates, definition of done, commit message) live in
   `AGENTS.md`; the plan links to them instead of restating them.
 
-Use `templates/parity_plan.md` when the plan does not exist yet, and
-`crystal-forge-setup-project/templates.AGENTS.md` +
-`crystal-forge-setup-project/templates.resuming.md` for the entrypoint and
-`docs/resuming.md`.
+Use `templates/parity_plan.md` when the plan is new, and the
+`crystal-forge-setup-project` templates for `AGENTS.md` and `docs/resuming.md`.
 
 ## Core scripts
 
@@ -121,19 +119,16 @@ python3 "${SKILL_DIR}/scripts/check_kind_vocabulary.py" \
   --scan rust=vendor/upstream/crates/core/src --scan go=vendor/upstream
 ```
 
-A non-empty `dropped` list means a whole category is missing from the manifests.
-Prove the gate with `--curated-override rust=const,struct,enum,trait,type,func,method,test`:
-it must report the historical `function`/`class`/`interface` gap.
+A non-empty `dropped` list means a whole category is missing; prove the gate
+with `--curated-override` (it must then report the historical gap).
 
 ### Existing repositories with copied parity scripts
 
-Inspect the script actually invoked by the repository before diagnosing a parser
-failure. Older copied `scripts/parity_inventory_lib.rb` versions contain a
-placeholder `tree-sitter` branch that still calls `discover_with_regex`; their
-`PORT_PARSER=tree-sitter` mode may warn and exit successfully. Installing the
-Ruby `tree_sitter` gem changes the warning, not extraction. Use this skill's
-canonical scripts directly, or deliberately migrate the repository's wrappers
-to them. Do not call a repository gate blocked when its regex check exits zero.
+Inspect the script the repository actually invokes before diagnosing a parser
+failure: older copied `scripts/parity_inventory_lib.rb` versions have a
+placeholder `tree-sitter` branch that still calls `discover_with_regex` (it may
+warn and exit zero). Use this skill's canonical scripts directly, or deliberately
+migrate the repository's wrappers; never call a gate blocked on a regex exit zero.
 
 Confirm the effective backend with `PARITY_DISCOVERY_BACKEND` and the generated
 manifest's `.metadata.json`; a requested parser mode does not prove which
@@ -142,13 +137,10 @@ verified `chiasmus-discover` toolchain and fails if it cannot run. `auto` can
 fall back to regex, so pin `PORT_PARSER=regex` when maintaining a ledger created
 with that vocabulary until a reviewed migration is complete.
 
-For new Go manifests, strict discovery retains the native declarations listed
-above alongside `const` and `method`. To migrate an existing regex-based Go
-ledger, generate a separate native candidate and review it against the curated
-baseline. Named types such as `type Counter int` can appear only as
-`definition.type`, which is outside the curated defaults. Audit these types
-and review any duplicate captures before mapping IDs to preserve curated
-coverage and implementation status.
+To migrate an existing regex-based Go ledger, generate a separate native
+candidate and review it against the curated baseline: named types such as
+`type Counter int` appear only as `definition.type` (outside the curated
+defaults), so audit those and any duplicate captures before mapping ids.
 
 ## Scope and preflight
 
@@ -196,14 +188,11 @@ SKILL_DIR=/Users/dominic/.agents/skills/crystal_forge/skills/cross-language-crys
 "${SKILL_DIR}/scripts/ensure_parity_plan.sh" /path/to/repo <source_path> <language> auto 0
 ```
 
-Release archives are resolved automatically. For an air-gapped installation,
-set `CHIASMUS_TOOLCHAIN_DIR` to an unpacked complete release directory or warm
-the resolver cache before setting `CHIASMUS_TOOLCHAIN_OFFLINE=1`.
-
-To install explicitly, run `bash "${SKILL_DIR}/scripts/install_chiasmus_toolchain.sh"`.
-Use `--version <exact-tag>` to install a specific release. In this repository,
-refresh workspace skills with `python3 scripts/sync_workspace_skills.py` and
-detect drift with `python3 scripts/sync_workspace_skills.py --check`.
+Release archives resolve automatically; for an air-gapped install set
+`CHIASMUS_TOOLCHAIN_DIR` (or warm the cache) before
+`CHIASMUS_TOOLCHAIN_OFFLINE=1`. Install explicitly with
+`scripts/install_chiasmus_toolchain.sh` (`--version <tag>`); refresh workspace
+skills with `scripts/sync_workspace_skills.py` and check drift with `--check`.
 
 ## Standard flow
 
@@ -219,10 +208,10 @@ This should leave you with validated inventory manifests plus a curated
 
 ### 2. Keep the right files curated
 
-- `plans/parity.md` is a feature roadmap, not a generated dump.
-- `<language>_port_inventory.tsv` is the day-to-day ledger.
-- Source and test parity TSVs are generated reference manifests.
-- Regenerate generated manifests only for intentional upstream refresh.
+`plans/parity.md` is a feature roadmap, not a generated dump;
+`<language>_port_inventory.tsv` is the day-to-day ledger; the source and test
+parity TSVs are generated reference manifests, refreshed only on an intentional
+upstream bump.
 
 ### 3. Implement from the plan
 
@@ -246,10 +235,9 @@ Do not stop at helper-sized milestones if the top-level feature is still open.
 
 ### 4. Commit at feature completion (required)
 
-**Every feature completed in `plans/parity.md` must be committed before
-starting the next feature.** This is not optional. A single feature may
-span many files, but it must be committed as one atomic change after its
-checkbox is checked.
+**Every feature completed in `plans/parity.md` is committed before the next
+one starts** — one atomic change, after its checkbox is checked, however many
+files it spans.
 
 Before committing:
 
@@ -262,14 +250,8 @@ Before committing:
    to verify nothing is broken.
 5. Push or keep local — but the commit must exist.
 
-Example:
-
-```text
-port: JobExecutor execute, SubscriptionManager
-
-- JobExecutor: full execute with hooks, middleware, retry, snooze, stuck detection
-- SubscriptionManager: event subscriptions with SubscribeConfig, cancel support
-```
+Example subject: `port: JobExecutor execute, SubscriptionManager`, then bullets
+for each feature's behavior and the gate results.
 
 ### 5. Re-run drift checks continuously
 
@@ -279,9 +261,8 @@ inventory check also fails on a `crystal_refs` entry whose file no longer
 exists, which is the failure mode that silently accumulates whenever this repo's
 own files move.
 
-When the pinned upstream release changes, **re-base** the ledger rather than
-appending to it, and write the release's added/modified/deleted symbols to
-`plans/inventory/v<NN>_delta_triage.tsv`.
+When the pinned release changes, **re-base** the ledger rather than appending to
+it (see *Vendor refresh & re-reconcile* below).
 
 ```bash
 "${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv <source_path> <language>
@@ -297,7 +278,7 @@ appending to it, and write the release's added/modified/deleted symbols to
   '<upstream test command>'
 ```
 
-Run this as an independent review pass when possible.
+Run it as an independent review pass.
 
 ## Cross-language reconciliation (maps / surfaces / divergences)
 
@@ -335,13 +316,9 @@ Drive the full reconciliation:
 "${SKILL_DIR}/scripts/reconcile_parity.sh" . vendor/pdfbox java src plans/parity_rules.yml
 ```
 
-The wrapper enables Chiasmus's persistent per-file extraction cache for both
-facts runs. Set `PORT_RECONCILE_CACHE_DIR` to choose its location (otherwise it
-uses `CHIASMUS_CACHE_DIR` or the platform cache default). With a Chiasmus binary
-that advertises `chiasmus-discover --cache-dir`, generated Java, Crystal, and Go
-manifests use the same cache; older discovery bundles keep their prior behavior.
-The wrapper requires the typed declaration and bundle capabilities and checks
-their CLI flags before extraction. It rejects older or mixed binary versions;
+The wrapper uses Chiasmus's persistent extraction cache for both facts runs
+(`PORT_RECONCILE_CACHE_DIR`, else `CHIASMUS_CACHE_DIR`). It requires the typed
+declaration and bundle capabilities and rejects older or mixed binary versions:
 run the install preflight before a strict refresh.
 
 Outputs in `plans/generated/parity/<language>/`:
@@ -352,11 +329,8 @@ Outputs in `plans/generated/parity/<language>/`:
 - `maps.pl` - a Prolog program (`maps_to/2`, `surface_ok/1`, `incomplete/1`)
   queryable via `swipl` or the MCP `chiasmus_verify` tool
 
-Control scope with `PORT_SCOPE_EXCLUDE` (comma-separated paths/globs, e.g.
-`debugger,tools,benchmark,examples`); it is passed to `chiasmus-facts --exclude`
-(repeatable) so out-of-scope trees stop inflating the map. `divergences.tsv`
-columns: `source_id kind inventory_status map_status divergence target_name
-target_file target_owner basis`.
+Control scope with `PORT_SCOPE_EXCLUDE` (comma-separated paths/globs, passed to
+`chiasmus-facts --exclude`) so out-of-scope trees stop inflating the map.
 
 See the tool docs `chiasmus.cr/docs/parity-rule-data.md` for the full schema,
 authoring workflow, and the worked PDFBox example.
@@ -368,34 +342,44 @@ manifests and reconciliation go stale while the curated ledger and
 `plans/parity.md` stay authoritative. Re-derive the generated layer without
 clobbering curated work:
 
-1. Bump the vendor checkout and record the new revision (ledger notes or PR):
+1. Bump the vendor checkout and record the new revision:
 
    ```bash
    git -C vendor/<upstream> fetch --tags
    git -C vendor/<upstream> checkout <new-tag-or-sha>
    ```
 
-2. Refresh generated manifests and re-run drift checks, preserving the curated
-   port inventory:
+2. **Sweep the target for the release's behavior first.** A released symbol often
+   already exists in the port under another name, so ask
+   `chiasmus_search(query: "<behavior>", directory: "<repo>/src",
+   include: ["<pkg>/**/*.cr"])` (scope it: an unscoped directory scan fails over
+   its file cap) about every new subsystem before planning it. A hit means replace
+   it or register its retirement, never add beside it. The tree wins over the
+   changelog too: work superseded inside the release is not a work item.
+
+3. Refresh the generated manifests and gate the scan, keeping the curated ledger:
 
    ```bash
-   "${SKILL_DIR}/scripts/ensure_parity_plan.sh" . <source_path> <language> auto 1
+   PORT_PARSER=regex "${SKILL_DIR}/scripts/ensure_parity_plan.sh" . <source_path> <language> regex 1
+   python3 "${SKILL_DIR}/scripts/check_kind_vocabulary.py" --scan <language>=<source_path>/src
    ```
 
-   `REFRESH=1` regenerates `<language>_source_parity.tsv` /
-   `<language>_test_parity.tsv` and re-runs `check_*`. It never overwrites the
-   curated `<language>_port_inventory.tsv`; never run `generate_port_inventory.sh`
-   against a live ledger.
+   `REFRESH=1` regenerates `<language>_source_parity.tsv` and
+   `<language>_test_parity.tsv` and re-runs `check_*`; it never overwrites the
+   curated `<language>_port_inventory.tsv` (never run `generate_port_inventory.sh`
+   against a live ledger). Keep the parser the ledger is keyed on — switching
+   discovery mid-ledger churns every id. The kind gate catches a curated kind set
+   that silently drops a declaration category.
 
-3. Re-derive the reconciliation (idempotent):
+4. Re-derive the reconciliation (idempotent):
 
    ```bash
    "${SKILL_DIR}/scripts/reconcile_parity.sh" . <source_path> <language> <target-dir> plans/parity_rules.yml
    ```
 
-4. Diff against the previous run and triage. Two views, both needed:
+5. Diff and triage, in two views:
 
-   - **Per declaration** (what the phases actually own):
+   - **Per declaration** (what the phases own):
 
      ```bash
      python3 "${SKILL_DIR}/scripts/vendor_drift.py" \
@@ -406,22 +390,37 @@ clobbering curated work:
        --out plans/inventory/<version>_delta_symbols.tsv
      ```
 
-     Rows carry visibility, the triage phase, and ledger status, including rows
-     still claiming `ported` for declarations upstream deleted.
+     Rows carry visibility, the triage phase, and ledger status — including ids
+     still claiming `ported` for a declaration upstream deleted. It is a
+     **report**, not a re-base input: extraction uses tree-sitter's kinds
+     (`class`/`interface`/`function`) while the ledger is keyed on discovery's
+     (`struct`/`enum`/`trait`/`func`), so join by name and re-base from the
+     generator's rows.
 
    - **Per fact** (what the call graph sees): `chiasmus-plan refresh
      --previous-facts <previous>.pl`, then review `maps.tsv`, `surfaces.tsv`, and
      `divergences.tsv` for new unmapped, arity, and falsely-* rows.
 
-5. Update the curated ledger rows and `plans/parity.md` for the changes, then
-   re-run adversarial signoff:
+6. Re-base the ledger; never append across versions. Carry a row only for an id
+   the tree still has. Match a move on **area + file stem + kind + name** — a bare
+   kind-and-name match hands one symbol's decision to another (`parse`, `new`,
+   `get` recur everywhere), the mis-pointed evidence the refs guard exists to
+   catch — and record `Moved upstream in v<NN>: was <old id>`. Close a vanished id
+   with its record in the per-release artifacts; register a new one as `missing`
+   with the phase that owns its file; move any triage ratchet in the same commit.
+
+7. **Check what the pin deleted besides code** — fixtures, cassettes, goldens the
+   target's specs read. A pin that removes them must not delete cells: give the
+   target its own copy, resolve the local copy first, record its provenance.
+
+8. Update the ledger rows and `plans/parity.md`, then run adversarial signoff:
 
    ```bash
    "${SKILL_DIR}/scripts/verify_parity_adversarial.sh" . <source_path> <language> 'crystal spec' '<upstream test command>'
    ```
 
 Guardrail: the generated layer is disposable; the curated `port_inventory.tsv`
-and `plans/parity.md` are not. Regenerate freely, re-curate deliberately.
+and `plans/parity.md` are not.
 
 ## Ledger rules
 
@@ -444,7 +443,7 @@ Rules:
 
 ### Crystal refs
 
-Comma-separate when one row maps to several places:
+Separate several refs with `,` (canonical), `;`, or ` + `:
 
 | Form | Example | Checked |
 | --- | --- | --- |

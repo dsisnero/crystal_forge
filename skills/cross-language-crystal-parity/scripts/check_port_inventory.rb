@@ -94,19 +94,30 @@ ParityInventory.load_manifest_rows(manifest, min_cols: 5).each do |cols|
   # and nothing notices. Every ref must name a file that exists today. Line
   # anchors (`path:12-18`) are advisory and are not compared — they rot within a
   # single release.
-  refs.to_s.split(",").map(&:strip).each do |ref|
+  # Real ledgers separate multiple refs with ',', ';' or ' + '. Splitting on
+  # commas alone turns `a.cr + b.cr` into one bogus path that no file matches.
+  refs.to_s.split(/\s*[,;]\s*|\s+\+\s+/).map(&:strip).each do |ref|
     next if ref.empty? || ref == "-"
 
     path = ref.split(":").first
     next if path.nil? || path.empty?
 
+    # Ledgers often write later refs relative to the first ref's directory:
+    # `src/a/b.cr + sibling.cr`. Resolve that before reporting a miss.
+    first = refs.to_s.split(/\s*[,;]\s*|\s+\+\s+/).map(&:strip).find { |candidate| !candidate.empty? && candidate != "-" }
     target = File.join(options[:root_dir], path)
+    unless File.exist?(target)
+      sibling = first && first != ref ? File.join(options[:root_dir], File.dirname(first), path) : nil
+      if sibling && File.exist?(sibling)
+        target = sibling
+      else
+        hint = sibling ? " (relative to #{File.dirname(first)}?)" : ""
+        errors << "crystal_refs names a missing file for #{id}: #{path}#{hint}"
+        next
+      end
+    end
     if options[:require_file] && !File.file?(target)
       errors << "crystal_refs names a non-file for #{id}: #{path}"
-      next
-    end
-    unless File.exist?(target)
-      errors << "crystal_refs names a missing file for #{id}: #{path}"
       next
     end
 

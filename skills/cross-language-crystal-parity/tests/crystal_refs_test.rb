@@ -64,6 +64,24 @@ class CrystalRefsTest < Minitest::Test
     end
   end
 
+  def test_plus_and_semicolon_refs_are_split
+    with_fixture('src/x.cr + src/y.cr; src/z.cr') do |root, manifest|
+      %w[src/y.cr src/z.cr].each { |path| File.write(File.join(root, path), "def other\nend\n") }
+      _out, err, status = check(root, manifest)
+      assert status.success?, "expected multi-ref pass, got: #{err}"
+    end
+  end
+
+  def test_refs_relative_to_the_first_ref_resolve
+    with_fixture('src/deep/x.cr + sibling.cr') do |root, manifest|
+      FileUtils.mkdir_p(File.join(root, 'src/deep'))
+      File.write(File.join(root, 'src/deep/x.cr'), "def thing\nend\n")
+      File.write(File.join(root, 'src/deep/sibling.cr'), "def other\nend\n")
+      _out, err, status = check(root, manifest)
+      assert status.success?, "expected sibling ref pass, got: #{err}"
+    end
+  end
+
   def test_directory_ref_passes_by_default_but_fails_with_require_file
     with_fixture('src') do |root, manifest|
       _out, err, status = check(root, manifest)

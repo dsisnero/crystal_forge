@@ -126,8 +126,12 @@ def source_symbol(row: Row) -> str | None:
     return parts[-1] if parts else None
 
 
+REF_SPLIT = re.compile(r"\s*[,;]\s*|\s+\+\s+")
+
+
 def split_refs(column: str) -> list[str]:
-    return [ref.strip() for ref in column.split(",") if ref.strip() and ref.strip() != "-"]
+    """Multiple refs are separated by ',', ';' or ' + ' in real ledgers."""
+    return [ref.strip() for ref in REF_SPLIT.split(column) if ref.strip() and ref.strip() != "-"]
 
 
 def is_symbol_ref(ref: str) -> bool:
@@ -166,25 +170,32 @@ def classify(row: Row, port_by_file: dict[str, list[Symbol]], port_root: Path) -
     usable = []
     coarse = False
     missing = False
+    first_ref = next((candidate for candidate in refs if not is_symbol_ref(candidate)), None)
+    first_dir = Path(first_ref.split(":")[0]).parent if first_ref else None
     for ref in refs:
         if is_symbol_ref(ref):
             continue
         file_ref = ref.split(":")[0]
         target = port_root / file_ref
+        if not target.exists() and first_dir and first_dir != Path("."):
+            # `a/b.cr + sibling.cr` means a/sibling.cr
+            sibling = port_root / first_dir / file_ref
+            if sibling.exists():
+                target = sibling
+                file_ref = (first_dir / file_ref).as_posix()
         if target.is_dir():
             coarse = True
             continue
         if not target.exists():
             missing = True
             continue
-        usable.append(ref)
+        usable.append(file_ref)
 
     if not usable:
         row.stage = 5 if coarse else 6
         return row
 
-    for ref in usable:
-        file_ref = ref.split(":")[0]
+    for file_ref in usable:
         in_file = port_by_file.get(file_ref, [])
 
         def qualified_candidates(symbols):

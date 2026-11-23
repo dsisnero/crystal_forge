@@ -7,6 +7,24 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-11-23
+
+### Fixed
+
+- `check_port_inventory` and `migrate_crystal_refs` split `crystal_refs` on `,`,
+  `;` and ` + `. A real Java ledger wrote `a.cr + b.cr` for multi-target rows,
+  which the comma-only splitter turned into one nonexistent path (26 gate errors
+  on rows that were, mostly, fine).
+- Later refs are resolved relative to the first ref's directory when the direct
+  path is missing (`src/graphics/shading.cr + shading/type1.cr`), and a still
+  unresolved path now reports the base it tried.
+
+### Changed
+
+- `SKILL.md` documents the accepted separators; the sibling rule is a fallback,
+  not a substitute for complete paths.
+
+
 ## [1.12.1] - 2026-11-23
 
 ### Fixed
