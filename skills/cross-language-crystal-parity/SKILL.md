@@ -443,7 +443,9 @@ Rules:
 
 ### Crystal refs
 
-Separate several refs with `,` (canonical), `;`, or ` + `:
+Separate several refs with `,`. That is the canonical form every script writes;
+parsing also accepts `;` and ` + ` for older ledgers, and `--strict-refs`
+(`PORT_REF_STRICT=1`) rejects them so a new repo can require the exact form.
 
 | Form | Example | Checked |
 | --- | --- | --- |
@@ -452,8 +454,7 @@ Separate several refs with `,` (canonical), `;`, or ` + `:
 | file + symbol | `src/tea/clipboard.cr::method::Bubbletea.read_clipboard` | file, syntax, and with `--crystal-source` the discovered id |
 
 The `::` form is the discovery id prefixed with the repo-relative path, so a row
-is validated rather than trusted; the file half is what `split(":")` returns, so
-the existing check keeps working.
+is validated rather than trusted; the file half is what `split(":")` returns.
 
 ```bash
 python3 "${SKILL_DIR}/scripts/migrate_crystal_refs.py" \

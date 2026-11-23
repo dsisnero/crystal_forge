@@ -7,6 +7,23 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-11-23
+
+### Changed
+
+- Multi-target `crystal_refs` have one canonical written form: comma-separated
+  with no spaces (`src/a.cr,src/b.cr::method::X`). The tab-delimited field needs
+  no quoting, and `split(",")` is what every consumer already does. Parsing stays
+  liberal (`;`, ` + `) for older ledgers.
+- `migrate_crystal_refs.py` now rewrites each ref independently instead of
+  collapsing the row to one symbol: unmatched refs are preserved, resolved ones
+  become symbol refs, duplicates are dropped, and the fallback global name search
+  only runs when no ref in the row matched its own file (so a resolved row cannot
+  sprout guesses from unrelated files).
+- `--strict-refs` / `PORT_REF_STRICT=1` reject legacy separators, for repos that
+  want to parse and write exactly one form.
+
+
 ## [1.12.2] - 2026-11-23
 
 ### Fixed

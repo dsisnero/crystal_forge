@@ -37,7 +37,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -81,8 +81,10 @@ class Symbol:
 class Row:
     columns: list[str]
     stage: int = 0
-    symbol: Symbol | None = None
     candidates: int = 0
+    out_refs: list[str] = field(default_factory=list)
+    moved: list[tuple[str, str]] = field(default_factory=list)  # (old file, new file)
+    original: str = ""
 
 
 def load_port(facts_paths: list[Path], port_root: Path) -> dict[str, list[Symbol]]:
@@ -126,12 +128,19 @@ def source_symbol(row: Row) -> str | None:
     return parts[-1] if parts else None
 
 
+# Canonical output is comma-separated with no spaces: the column is already
+# tab-delimited, commas need no quoting, and `split(",")` works everywhere.
+# Input is parsed liberally because older ledgers also used `;` and ` + `.
+REF_SEPARATOR = ","
 REF_SPLIT = re.compile(r"\s*[,;]\s*|\s+\+\s+")
 
 
 def split_refs(column: str) -> list[str]:
-    """Multiple refs are separated by ',', ';' or ' + ' in real ledgers."""
     return [ref.strip() for ref in REF_SPLIT.split(column) if ref.strip() and ref.strip() != "-"]
+
+
+def join_refs(refs: list[str]) -> str:
+    return REF_SEPARATOR.join(refs)
 
 
 def is_symbol_ref(ref: str) -> bool:
@@ -154,105 +163,119 @@ def classify(row: Row, port_by_file: dict[str, list[Symbol]], port_root: Path) -
     refs = split_refs(row.columns[3]) if len(row.columns) > 3 else []
     if not refs:
         return row
+    row.original = row.columns[3]
+
     if all(is_symbol_ref(ref) for ref in refs):
         row.stage = 0
+        row.out_refs = list(refs)
         return row
 
     source = source_symbol(row)
     if not source:
         row.stage = 4
+        row.out_refs = list(refs)
         return row
     source_segments = segments(source)
+    bare = source_segments[-1]
 
-    # A ref that names a directory (or a path that no longer exists) cannot be
-    # turned into a symbol, and must not fall back to a global name search:
-    # "somewhere in src" is not a mapping. Report it as its own defect.
-    usable = []
-    coarse = False
-    missing = False
-    first_ref = next((candidate for candidate in refs if not is_symbol_ref(candidate)), None)
+    first_ref = next((ref for ref in refs if not is_symbol_ref(ref)), None)
     first_dir = Path(first_ref.split(":")[0]).parent if first_ref else None
+
+    entries = []
     for ref in refs:
         if is_symbol_ref(ref):
+            entries.append({"ref": ref, "kind": "symbol"})
             continue
         file_ref = ref.split(":")[0]
         target = port_root / file_ref
         if not target.exists() and first_dir and first_dir != Path("."):
-            # `a/b.cr + sibling.cr` means a/sibling.cr
             sibling = port_root / first_dir / file_ref
             if sibling.exists():
                 target = sibling
                 file_ref = (first_dir / file_ref).as_posix()
         if target.is_dir():
-            coarse = True
-            continue
-        if not target.exists():
-            missing = True
-            continue
-        usable.append(file_ref)
+            entries.append({"ref": ref, "kind": "coarse"})
+        elif not target.exists():
+            entries.append({"ref": ref, "kind": "missing"})
+        else:
+            entries.append({"ref": ref, "kind": "valid", "file": file_ref})
 
-    if not usable:
-        row.stage = 5 if coarse else 6
-        return row
-
-    for file_ref in usable:
+    def in_file_match(file_ref: str):
         in_file = port_by_file.get(file_ref, [])
-
-        def qualified_candidates(symbols):
-            return [
-                symbol for symbol in symbols
-                if len(symbol.qsegments) >= len(source_segments)
-                and symbol.qsegments[-len(source_segments):] == source_segments
-            ]
-
-        bare = source_segments[-1]
-        bare_candidates = [symbol for symbol in in_file if snake(symbol.bare.rstrip("?!")) == bare]
-
-        # A receiver-qualified source (`Program.Run`) must prefer the qualified
-        # match: bare `run` in the same file may belong to another class.
         if len(source_segments) > 1:
-            candidates = qualified_candidates(in_file)
-            if (chosen := pick(candidates)) is not None:
-                row.stage, row.symbol, row.candidates = 1, chosen, len(candidates)
-                return row
-
-        if (chosen := pick(bare_candidates)) is not None:
-            row.stage, row.symbol, row.candidates = 2, chosen, len(bare_candidates)
-            return row
-
+            candidates = [symbol for symbol in in_file
+                          if len(symbol.qsegments) >= len(source_segments)
+                          and symbol.qsegments[-len(source_segments):] == source_segments]
+            if (picked := pick(candidates)) is not None:
+                return picked, 1, len(candidates)
+        candidates = [symbol for symbol in in_file if snake(symbol.bare.rstrip("?!")) == bare]
+        if (picked := pick(candidates)) is not None:
+            return picked, 2, len(candidates)
         if len(source_segments) == 1:
-            candidates = qualified_candidates(in_file)
-            if (chosen := pick(candidates)) is not None:
-                row.stage, row.symbol, row.candidates = 1, chosen, len(candidates)
-                return row
+            candidates = [symbol for symbol in in_file
+                          if len(symbol.qsegments) >= 1 and symbol.qsegments[-1] == bare]
+            if (picked := pick(candidates)) is not None:
+                return picked, 1, len(candidates)
+        return None, 0, 0
 
-    # stage 3: suffix match anywhere (the ledger's file ref was stale)
-    everywhere = [symbol for symbols in port_by_file.values() for symbol in symbols]
-    candidates = [
-        symbol for symbol in everywhere
-        if len(symbol.qsegments) >= len(source_segments)
-        and symbol.qsegments[-len(source_segments):] == source_segments
-    ]
-    if (chosen := pick(candidates)) is not None:
-        row.stage, row.symbol, row.candidates = 3, chosen, len(candidates)
-        return row
+    def global_match():
+        candidates = [symbol for symbols in port_by_file.values() for symbol in symbols
+                      if len(symbol.qsegments) >= len(source_segments)
+                      and symbol.qsegments[-len(source_segments):] == source_segments]
+        return pick(candidates), len(candidates)
 
-    row.stage, row.candidates = 4, len(candidates)
+    # Pass 1: in-file matches for every ref. Pass 2: only then fall back to the
+    # whole port, so a multi-target row never prefers a guess over its own file.
+    stages = {}
+    for index, entry in enumerate(entries):
+        if entry["kind"] != "valid":
+            continue
+        picked, stage, count = in_file_match(entry["file"])
+        if picked is not None:
+            entry["symbol"] = picked
+            stages[index] = stage
+            row.candidates = count
+
+    # Only search the whole port when no ref in this row matched its own file:
+    # otherwise a resolved row would sprout extra guesses from unrelated files.
+    in_file_hits = bool(stages)
+    for index, entry in enumerate(entries):
+        if entry["kind"] != "valid" or "symbol" in entry or in_file_hits:
+            continue
+        picked, count = global_match()
+        if picked is not None:
+            entry["symbol"] = picked
+            stages[index] = 3
+            row.candidates = count
+            if picked.file != entry["file"]:
+                row.moved.append((entry["file"], picked.file))
+
+    seen: list[str] = []
+    for entry in entries:
+        ref = entry["symbol"].ref if "symbol" in entry else entry["ref"]
+        if ref not in seen:
+            seen.append(ref)
+    row.out_refs = seen
+    if stages:
+        row.stage = min(stages.values())
+    elif any(entry["kind"] == "coarse" for entry in entries):
+        row.stage = 5
+    elif any(entry["kind"] == "missing" for entry in entries):
+        row.stage = 6
+    else:
+        row.stage = 4
     return row
 
 
 def render(row: Row) -> str:
-    if row.stage in (1, 2, 3) and row.symbol is not None:
-        first_ref = split_refs(row.columns[3])[0]
-        old_file = first_ref.split(":")[0]
-        columns = list(row.columns)
-        columns[3] = row.symbol.ref
-        if row.stage == 3 and row.symbol.file != old_file:
-            note = columns[4] if len(columns) > 4 else ""
-            marker = f"symbol lives in {row.symbol.file}"
-            columns[4] = f"{note}; {marker}" if note and note != "-" else marker
-        return "\t".join(columns)
-    return "\t".join(row.columns)
+    columns = list(row.columns)
+    if row.out_refs:
+        columns[3] = join_refs(row.out_refs)
+    if row.moved and len(columns) > 4:
+        markers = "; ".join(f"symbol lives in {new}" for _old, new in row.moved)
+        note = columns[4]
+        columns[4] = f"{note}; {markers}" if note and note != "-" else markers
+    return "\t".join(columns)
 
 
 def main(argv: list[str]) -> int:
@@ -267,6 +290,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--port-root", default=".")
     parser.add_argument("--out", required=True)
     parser.add_argument("--samples", type=int, default=8, help="stage-4 samples to print")
+    parser.add_argument("--strict-refs", action="store_true",
+                        help="reject legacy separators (';', ' + '); output is always comma-separated")
     args = parser.parse_args(argv)
 
     port_root = Path(args.port_root).expanduser().resolve()
@@ -297,7 +322,15 @@ def main(argv: list[str]) -> int:
     port_by_file = load_port(facts_paths, port_root)
     ledger_path = Path(args.ledger).expanduser()
 
-    rows = [classify(row, port_by_file, port_root) for row in read_ledger(ledger_path)]
+    raw_rows = read_ledger(ledger_path)
+    if args.strict_refs:
+        legacy = [row.columns[0] for row in raw_rows
+                  if len(row.columns) > 3 and re.search(r"[;]|\s\+\s", row.columns[3])]
+        if legacy:
+            print(f"{len(legacy)} rows use legacy ref separators (';' or ' + '); "
+                  f"rewrite them with ',' first:\n  " + "\n  ".join(legacy[:10]), file=sys.stderr)
+            return 2
+    rows = [classify(row, port_by_file, port_root) for row in raw_rows]
 
     counts = {stage: 0 for stage in range(7)}
     for row in rows:

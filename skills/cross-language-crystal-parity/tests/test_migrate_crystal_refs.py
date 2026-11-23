@@ -90,13 +90,34 @@ class MigrateCrystalRefsTest(unittest.TestCase):
         # stage 3: the symbol lives elsewhere, so the ref is repaired and noted
         self.assertEqual(by_id["other.go::func::MovedSymbol"][3], "src/other.cr::function::Other.moved_symbol")
         self.assertIn("symbol lives in src/other.cr", by_id["other.go::func::MovedSymbol"][4])
-        # stage 1: a bare `Run` with two plus-separated refs resolves in one of them
-        self.assertEqual(by_id["multi.go::func::Run"][3], "src/tea.cr::function::Tea.Program.run")
+        # canonical output: one comma, no '+', and the unmapped ref is preserved
+        self.assertEqual(
+            by_id["multi.go::func::Run"][3],
+            "src/clipboard.cr,src/tea.cr::function::Tea.Program.run",
+        )
         # stage 1: the receiver-qualified name beats a same-file bare `run`
         self.assertEqual(by_id["tea.go::method::Program.Run"][3], "src/tea.cr::function::Tea.Program.run")
-        self.assertEqual(by_id["sibling.go::func::Helper"][3], "src/nested/helper.cr::function::Nested.helper")
+        self.assertEqual(
+            by_id["sibling.go::func::Helper"][3],
+            "src/tea.cr,src/nested/helper.cr::function::Nested.helper",
+        )
         # stage 4: untouched, still a file ref
         self.assertEqual(by_id["missing.go::func::Gone"][3], "src/tea.cr")
+
+    def test_strict_refs_rejects_legacy_separators(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--ledger", str(self.ledger),
+             "--port-facts", str(self.facts), "--port-root", str(self.root),
+             "--out", str(self.out), "--strict-refs"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("legacy ref separators", result.stderr)
+
+    def test_output_uses_comma_only(self) -> None:
+        self.assertEqual(self.migrate().returncode, 0)
+        column = [row.split("\t")[3] for row in self.out.read_text().splitlines()[1:]]
+        self.assertFalse([ref for ref in column if "+" in ref or ";" in ref], column)
 
     def test_never_edits_the_input_ledger(self) -> None:
         before = self.ledger.read_text(encoding="utf-8")

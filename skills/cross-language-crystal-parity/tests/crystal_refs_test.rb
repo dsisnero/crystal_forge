@@ -82,6 +82,15 @@ class CrystalRefsTest < Minitest::Test
     end
   end
 
+  def test_strict_refs_rejects_legacy_separators
+    with_fixture('src/x.cr + src/y.cr') do |root, manifest|
+      File.write(File.join(root, 'src/y.cr'), "def other\nend\n")
+      _out, err, status = check(root, manifest, 'PORT_REF_STRICT' => '1')
+      refute status.success?
+      assert_includes err, 'must be comma-separated'
+    end
+  end
+
   def test_directory_ref_passes_by_default_but_fails_with_require_file
     with_fixture('src') do |root, manifest|
       _out, err, status = check(root, manifest)
