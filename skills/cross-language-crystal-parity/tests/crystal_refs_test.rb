@@ -64,6 +64,18 @@ class CrystalRefsTest < Minitest::Test
     end
   end
 
+  def test_directory_ref_passes_by_default_but_fails_with_require_file
+    with_fixture('src') do |root, manifest|
+      _out, err, status = check(root, manifest)
+      assert status.success?, "expected lenient pass, got: #{err}"
+
+      _out, err, status = check(root, manifest, 'PORT_REQUIRE_FILE' => '1')
+      refute status.success?
+      assert_includes err, 'names a non-file'
+      assert_includes err, 'src'
+    end
+  end
+
   def test_crystal_source_verifies_the_symbol_exists
     with_fixture('src/x.cr::method::thing') do |root, manifest|
       _out, err, status = check(root, manifest, 'PORT_CRYSTAL_SOURCE' => 'src')

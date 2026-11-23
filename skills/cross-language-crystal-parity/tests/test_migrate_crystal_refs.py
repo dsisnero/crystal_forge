@@ -30,6 +30,8 @@ clipboard.go::func::ReadClipboard\tfunc\tported\tsrc/clipboard.cr\tclipboard
 other.go::func::MovedSymbol\tfunc\tported\tsrc/tea.cr\tstale file ref
 missing.go::func::Gone\tfunc\tported\tsrc/tea.cr\tno counterpart
 tea.go::method::Program.Run\tmethod\tported\tsrc/tea.cr\tqualified source name
+coarse.go::func::Coarse\tfunc\tported\tsrc\tdirectory ref
+gone.go::func::MissingFile\tfunc\tported\tsrc/nope.cr\tstale path
 """
 
 
@@ -65,8 +67,11 @@ class MigrateCrystalRefsTest(unittest.TestCase):
         self.assertIn("stage 1:    1", result.stdout)  # Program.Run -> Tea.Program.run
         self.assertIn("stage 2:    2", result.stdout)  # Run, ReadClipboard
         self.assertIn("stage 3:    1", result.stdout)  # MovedSymbol, file ref stale
-        self.assertIn("stage 4:    1", result.stdout)  # Gone
-        self.assertIn("resolved: 4/5 = 80%", result.stdout)
+        self.assertIn("stage 4:    1", result.stdout)  # Gone (valid file ref, no match)
+        self.assertIn("stage 5:    1", result.stdout)  # Coarse: ref is the directory src
+        self.assertIn("stage 6:    1", result.stdout)  # MissingFile: ref file absent
+        self.assertIn("resolved: 4/7 = 57%", result.stdout)
+        self.assertIn("coarse refs (fix the ledger", result.stdout)
 
         rows = self.out.read_text(encoding="utf-8").splitlines()
         self.assertTrue(rows[0].startswith("# source_id"))

@@ -13,14 +13,22 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_kind_vocabulary.py"
 
 FAKE_DISCOVER = """#!/usr/bin/env python3
-import sys
-LANG = sys.argv[sys.argv.index("--language") + 1]
-ROWS = {
-    "rust": [("class", 2), ("function", 5), ("const", 1), ("reference.call", 7)],
-    "go": [("method", 3), ("params", 4)],
-}
+import pathlib, sys
+lang = sys.argv[sys.argv.index("--language") + 1]
+directory = pathlib.Path(sys.argv[sys.argv.index("--dir") + 1])
+spec = directory / "kinds.txt"
+if spec.is_file():
+    rows = []
+    for line in spec.read_text().splitlines():
+        kind, count = line.split()
+        rows.append((kind, int(count)))
+else:
+    rows = {
+        "rust": [("class", 2), ("function", 5), ("const", 1), ("reference.call", 7)],
+        "go": [("method", 3), ("params", 4)],
+    }.get(lang, [])
 print("# source_id\\tkind\\tstatus\\tcrystal_refs\\tnotes")
-for kind, count in ROWS.get(LANG, []):
+for kind, count in rows:
     for index in range(count):
         print(f"f{index}.rs::{kind}::{kind}_{index}\\t{kind}\\tported\\t-\\tparser=fake")
 """
@@ -76,6 +84,23 @@ class CheckKindVocabularyTest(unittest.TestCase):
         result = self.run_check("--emit-prolog")
         self.assertEqual(result.returncode, 0)
         self.assertNotIn("emits(rust, 'source_id'", result.stdout)
+
+    def test_multiple_roots_for_one_language_are_summed(self) -> None:
+        other = self.root / "src2"
+        other.mkdir()
+        (self.scan_dir / "kinds.txt").write_text("class 2\nfunction 5\n", encoding="utf-8")
+        (other / "kinds.txt").write_text("const 3\nreference.call 4\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--discover-bin", str(self.discover),
+             "--skill-lib", str(self.skill_lib),
+             "--scan", f"rust={self.scan_dir}", "--scan", f"rust={other}"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("10 declarations in 3 kinds", result.stdout)
+        self.assertIn("from 2 roots", result.stdout)
+        self.assertIn("4 auxiliary rows ignored", result.stdout)
 
     def test_emit_prolog_quotes_dotted_atoms(self) -> None:
         result = self.run_check("--emit-prolog")

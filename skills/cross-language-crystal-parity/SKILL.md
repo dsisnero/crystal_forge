@@ -406,9 +406,8 @@ clobbering curated work:
        --out plans/inventory/<version>_delta_symbols.tsv
      ```
 
-     Per-declaration rows carry visibility, the phase from the path triage, and
-     the ledger status — including rows still claiming `ported` for declarations
-     upstream deleted.
+     Rows carry visibility, the triage phase, and ledger status, including rows
+     still claiming `ported` for declarations upstream deleted.
 
    - **Per fact** (what the call graph sees): `chiasmus-plan refresh
      --previous-facts <previous>.pl`, then review `maps.tsv`, `surfaces.tsv`, and
@@ -466,11 +465,12 @@ python3 "${SKILL_DIR}/scripts/migrate_crystal_refs.py" \
 It stages every row and refuses to guess. Unresolved rows are usually
 **many-to-one collapse** (150 upstream accessors realized by a few Crystal
 methods): point them at the one symbol, or keep the file ref and mark the row
-`aggregate` in `notes`.
+`aggregate` in `notes`. A ref that names a directory (`src`) is reported as
+`coarse`, never name-matched — the ledger is not a mapping at that point.
 
 ```bash
 "${SKILL_DIR}/scripts/check_port_inventory.sh" . plans/inventory/<language>_port_inventory.tsv \
-  <source_path> <language>   # PORT_CRYSTAL_SOURCE=src also verifies symbols
+  <source_path> <language>   # PORT_CRYSTAL_SOURCE=src verifies symbols; PORT_REQUIRE_FILE=1 rejects directories
 ```
 
 ## Feature slicing rules

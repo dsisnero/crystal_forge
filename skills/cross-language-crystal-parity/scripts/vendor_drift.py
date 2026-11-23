@@ -169,7 +169,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--old", required=True, help="tag or commit of the previous baseline")
     parser.add_argument("--new", default="HEAD", help="tag, commit or HEAD of the new baseline")
     parser.add_argument("--scan-subdirs", nargs="+", default=["crates/rig-core/src"],
-                        help="subdirectories to discover, prefixed in ids (src/, tests/, ...)")
+                        help="subdirectories to discover")
+    parser.add_argument("--prefix-mode", choices=["name", "path"], default="name",
+                        help="id prefix per scan dir: 'name' uses its last component (src/, tests/); "
+                             "'path' uses the dir relative to --prefix-root (Java modules)")
+    parser.add_argument("--prefix-root",
+                        help="root that --prefix-mode path is relative to (default: the vendor root)")
     parser.add_argument("--language", default="rust")
     parser.add_argument("--discover-bin", help="discover binary (default: resolved toolchain)")
     parser.add_argument("--ledger", help="port inventory TSV (source_id/kind/status/...)")
@@ -186,6 +191,26 @@ def main(argv: list[str]) -> int:
         print(str(error), file=sys.stderr)
         return 2
 
+    prefix_root = Path(args.prefix_root).expanduser().resolve() if args.prefix_root else vendor
+
+    def prefix_for(subdir: str) -> str:
+        if args.prefix_mode == "path":
+            absolute = (vendor / subdir).resolve()
+            try:
+                return absolute.relative_to(prefix_root).as_posix().rstrip("/") + "/"
+            except ValueError:
+                raise SystemExit(f"--scan-subdirs {subdir} is outside --prefix-root {prefix_root}")
+        return Path(subdir.rstrip("/")).name + "/"
+
+    def merge(target: dict[str, Decl], found: dict[str, Decl], tree: str) -> None:
+        for source_id, decl in found.items():
+            if source_id in target:
+                raise SystemExit(
+                    f"duplicate declaration id across scan dirs ({tree}): {source_id}. "
+                    f"Use --prefix-mode path (with --prefix-root) so each root keeps its own prefix."
+                )
+            target[source_id] = decl
+
     with tempfile.TemporaryDirectory(prefix="vendor-drift-") as work:
         old_root = Path(work) / "old"
         new_root = Path(work) / "new"
@@ -193,11 +218,11 @@ def main(argv: list[str]) -> int:
         old_decls: dict[str, Decl] = {}
         new_decls: dict[str, Decl] = {}
         for subdir in scan_subdirs:
-            prefix = Path(subdir.rstrip("/")).name + "/"
+            prefix = prefix_for(subdir)
             old_tree = extract(vendor, args.old, subdir, old_root)
             new_tree = extract(vendor, args.new, subdir, new_root)
-            old_decls.update(discover(args.discover_bin, args.language, old_tree, prefix))
-            new_decls.update(discover(args.discover_bin, args.language, new_tree, prefix))
+            merge(old_decls, discover(args.discover_bin, args.language, old_tree, prefix), "old")
+            merge(new_decls, discover(args.discover_bin, args.language, new_tree, prefix), "new")
 
         visibility_roots = [new_root / subdir for subdir in scan_subdirs]
 

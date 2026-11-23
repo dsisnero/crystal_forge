@@ -15,7 +15,9 @@ It never edits the input. It writes a migrated copy plus a staged report:
   stage 1  qualified-name suffix match in the ref'd file  Program.Run -> Tea.Program.run
   stage 2  bare name match in the ref'd file
   stage 3  qualified-name suffix match elsewhere         (file moved; the ref was stale)
-  stage 4  unresolved                                    (renamed/collapsed: needs a human)
+  stage 4  unresolved                                    (valid file ref, no match: renamed/collapsed)
+  stage 5  coarse ref: names a directory, not a file     (cannot be mapped; fix the ledger)
+  stage 6  the ref's file does not exist                 (stale path)
 
 `::` is deliberate: check_port_inventory.rb validates `ref.split(":").first` as a
 path, so `path::kind::name` keeps passing while `path#name` would not.
@@ -144,7 +146,7 @@ def pick(candidates: list[Symbol]) -> Symbol | None:
     return unique[0] if len(unique) == 1 else None
 
 
-def classify(row: Row, port_by_file: dict[str, list[Symbol]]) -> Row:
+def classify(row: Row, port_by_file: dict[str, list[Symbol]], port_root: Path) -> Row:
     refs = split_refs(row.columns[3]) if len(row.columns) > 3 else []
     if not refs:
         return row
@@ -158,9 +160,30 @@ def classify(row: Row, port_by_file: dict[str, list[Symbol]]) -> Row:
         return row
     source_segments = segments(source)
 
+    # A ref that names a directory (or a path that no longer exists) cannot be
+    # turned into a symbol, and must not fall back to a global name search:
+    # "somewhere in src" is not a mapping. Report it as its own defect.
+    usable = []
+    coarse = False
+    missing = False
     for ref in refs:
         if is_symbol_ref(ref):
             continue
+        file_ref = ref.split(":")[0]
+        target = port_root / file_ref
+        if target.is_dir():
+            coarse = True
+            continue
+        if not target.exists():
+            missing = True
+            continue
+        usable.append(ref)
+
+    if not usable:
+        row.stage = 5 if coarse else 6
+        return row
+
+    for ref in usable:
         file_ref = ref.split(":")[0]
         in_file = port_by_file.get(file_ref, [])
 
@@ -263,9 +286,9 @@ def main(argv: list[str]) -> int:
     port_by_file = load_port(facts_paths, port_root)
     ledger_path = Path(args.ledger).expanduser()
 
-    rows = [classify(row, port_by_file) for row in read_ledger(ledger_path)]
+    rows = [classify(row, port_by_file, port_root) for row in read_ledger(ledger_path)]
 
-    counts = {stage: 0 for stage in range(5)}
+    counts = {stage: 0 for stage in range(7)}
     for row in rows:
         if len(row.columns) > 3 and split_refs(row.columns[3]):
             counts[row.stage] += 1
@@ -277,14 +300,19 @@ def main(argv: list[str]) -> int:
         1: "qualified name in the ref'd file",
         2: "bare name in the ref'd file",
         3: "qualified name elsewhere (stale file ref)",
-        4: "unresolved (renamed/collapsed)",
+        4: "unresolved (valid file ref, no match)",
+        5: "coarse ref: a directory, not a file",
+        6: "ref file does not exist",
     }
-    for stage in range(5):
+    for stage in range(7):
         print(f"  stage {stage}: {counts[stage]:4d}  {labels[stage]}")
     resolved = counts[0] + counts[1] + counts[2] + counts[3]
     print(f"resolved: {resolved}/{total} = {100 * resolved / max(1, total):.0f}%")
 
     unresolved = [row for row in rows if row.stage == 4]
+    coarse_rows = [row for row in rows if row.stage == 5]
+    if coarse_rows:
+        print(f"\ncoarse refs (fix the ledger, then migrate again): {len(coarse_rows)}")
     if unresolved:
         print(f"\nstage 4 samples ({min(args.samples, len(unresolved))} of {len(unresolved)}):")
         for row in unresolved[: args.samples]:

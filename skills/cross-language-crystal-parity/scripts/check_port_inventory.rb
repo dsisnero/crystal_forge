@@ -17,7 +17,8 @@ options = {
   parser: ENV["PORT_PARSER"] || "auto",
   include_paths: ENV.fetch("PORT_SCOPE_INCLUDE", "").split(","),
   exclude_patterns: ENV.fetch("PORT_SCOPE_EXCLUDE", "").split(","),
-  crystal_source: ENV["PORT_CRYSTAL_SOURCE"]
+  crystal_source: ENV["PORT_CRYSTAL_SOURCE"],
+  require_file: ENV["PORT_REQUIRE_FILE"] == "1"
 }
 
 OptionParser.new do |opts|
@@ -30,6 +31,7 @@ OptionParser.new do |opts|
   opts.on("--include PATH", "Include path relative to source (repeatable)") { |v| options[:include_paths] << v }
   opts.on("--exclude GLOB", "Exclude glob relative to source (repeatable)") { |v| options[:exclude_patterns] << v }
   opts.on("--crystal-source DIR", "Also verify symbol refs against Chiasmus discovery of this Crystal tree") { |v| options[:crystal_source] = v }
+  opts.on("--require-file", "crystal_refs must name a file, not a directory") { options[:require_file] = true }
 end.parse!
 
 language = options[:language]
@@ -98,7 +100,12 @@ ParityInventory.load_manifest_rows(manifest, min_cols: 5).each do |cols|
     path = ref.split(":").first
     next if path.nil? || path.empty?
 
-    unless File.exist?(File.join(options[:root_dir], path))
+    target = File.join(options[:root_dir], path)
+    if options[:require_file] && !File.file?(target)
+      errors << "crystal_refs names a non-file for #{id}: #{path}"
+      next
+    end
+    unless File.exist?(target)
       errors << "crystal_refs names a missing file for #{id}: #{path}"
       next
     end

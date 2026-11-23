@@ -154,11 +154,16 @@ def main(argv: list[str]) -> int:
         return 2
 
     emitted: dict[str, dict[str, int]] = {}
+    roots: dict[str, int] = {}
     for entry in args.scan:
         language, _, directory = entry.partition("=")
         if not language or not directory:
             parser.error(f"--scan expects LANG=DIR, got {entry!r}")
-        emitted[language] = run_discover(discover_bin, language, directory)
+        # A language can have several source roots (Java modules, Crystal src+spec).
+        counts = emitted.setdefault(language, {})
+        for kind, count in run_discover(discover_bin, language, directory).items():
+            counts[kind] = counts.get(kind, 0) + count
+        roots[language] = roots.get(language, 0) + 1
 
     skill_lib = Path(args.skill_lib).expanduser()
     try:
@@ -178,8 +183,9 @@ def main(argv: list[str]) -> int:
         counts = emitted[language]
         declarations = {k: v for k, v in counts.items() if not is_auxiliary(k, extra)}
         auxiliaries = sum(v for k, v in counts.items() if is_auxiliary(k, extra))
+        root_note = f" from {roots[language]} roots" if roots.get(language, 1) > 1 else ""
         print(f"{language}: {sum(declarations.values())} declarations in "
-              f"{len(declarations)} kinds ({auxiliaries} auxiliary rows ignored); "
+              f"{len(declarations)} kinds ({auxiliaries} auxiliary rows ignored{root_note}); "
               f"curated set has {len(curated.get(language, set()))} kinds")
         for kind in sorted(declarations):
             if kind not in curated.get(language, set()):

@@ -7,6 +7,25 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-11-23
+
+### Fixed
+
+- `check_kind_vocabulary.py` merges several `--scan` roots for one language
+  instead of letting the last root win; Java modules and Crystal `src` + `spec`
+  trees were silently under-counted.
+- `vendor_drift.py` gains `--prefix-mode path` (with `--prefix-root`) for
+  multi-module vendors such as Java, where `pdfbox/src/main/java` and
+  `fontbox/src/main/java` both collapsed to a `java/` prefix. Duplicate
+  declaration ids across roots now fail loudly instead of overwriting.
+- `migrate_crystal_refs.py` reports a ref that names a directory as `coarse` and
+  a ref whose file is gone as `missing` (stages 5 and 6) instead of name-matching
+  them globally. On a real Java ledger that turned 1,989 bogus "stale file ref"
+  hits into 6,265 honest coarse refs and 26 missing paths.
+- `check_port_inventory` gains `PORT_REQUIRE_FILE=1` / `--require-file` so a
+  directory ref can be rejected; the existence check alone accepted `src`.
+
+
 ## [1.12.0] - 2026-11-23
 
 ### Added

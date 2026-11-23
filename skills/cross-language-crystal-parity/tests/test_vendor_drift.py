@@ -14,10 +14,10 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "vendor_drift.py"
 FAKE_DISCOVER = """#!/usr/bin/env python3
 import pathlib, re, sys
 directory = pathlib.Path(sys.argv[sys.argv.index("--dir") + 1])
-for path in sorted(directory.rglob("*.rs")):
+for path in sorted([*directory.rglob("*.rs"), *directory.rglob("*.java")]):
     relative = path.relative_to(directory).as_posix()
     text = path.read_text()
-    for name in re.findall(r"fn\\s+([A-Za-z_][A-Za-z0-9_]*)", text):
+    for name in re.findall(r"(?:fn|void)\\s+([A-Za-z_][A-Za-z0-9_]*)", text):
         print(f"{relative}::func::{name}\\tfunc\\tported\\t-\\tparser=fake")
 """
 
@@ -106,6 +106,61 @@ class VendorDriftTest(unittest.TestCase):
         removed = by_id["demo/drop.rs::func::drop_it"]
         self.assertEqual(removed[2], "removed")
         self.assertEqual(removed[5], "ported")  # the ledger still claims it
+
+    def test_prefix_mode_path_keeps_module_roots_distinct(self) -> None:
+        for module in ("pdfbox", "fontbox"):
+            base = self.vendor / module / "src" / "main" / "java"
+            base.mkdir(parents=True, exist_ok=True)
+            (base / "Same.java").write_text("public class Same { public void run() {} }\n", encoding="utf-8")
+        git("add", "-A", cwd=self.vendor)
+        git("commit", "-qm", "fixture: java modules", cwd=self.vendor)
+        git("tag", "java-base", cwd=self.vendor)
+        (self.vendor / "pdfbox" / "src" / "main" / "java" / "Extra.java").write_text(
+            "public class Extra { public void go() {} }\n", encoding="utf-8")
+        (self.vendor / "fontbox" / "src" / "main" / "java" / "Same.java").write_text(
+            "public class Same { public void run() {} public void tick() {} }\n", encoding="utf-8")
+        git("add", "-A", cwd=self.vendor)
+        git("commit", "-qm", "fixture: extra java file", cwd=self.vendor)
+        git("tag", "java-added", cwd=self.vendor)
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--vendor", str(self.vendor), "--old", "java-base", "--new", "java-added",
+             "--scan-subdirs", "pdfbox/src/main/java", "fontbox/src/main/java",
+             "--prefix-mode", "path",
+             "--discover-bin", str(self.discover),
+             "--out", str(self.out)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        ids = [row.split("\t")[0] for row in self.out.read_text().splitlines()[1:]]
+        self.assertIn("pdfbox/src/main/java/Extra.java::func::go", ids)
+        self.assertIn("fontbox/src/main/java/Same.java::func::tick", ids)
+        self.assertFalse([i for i in ids if i.startswith("java/")], "name-mode prefixes collided")
+
+    def test_duplicate_ids_without_path_prefix_fail_loudly(self) -> None:
+        for module in ("pdfbox", "fontbox"):
+            base = self.vendor / module / "src" / "main" / "java"
+            base.mkdir(parents=True, exist_ok=True)
+            (base / "Same.java").write_text("public class Same { public void run() {} }\n", encoding="utf-8")
+        git("add", "-A", cwd=self.vendor)
+        git("commit", "-qm", "fixture: duplicate roots", cwd=self.vendor)
+        git("tag", "dup-base", cwd=self.vendor)
+        (self.vendor / "README").write_text("touch\n", encoding="utf-8")
+        git("add", "-A", cwd=self.vendor)
+        git("commit", "-qm", "fixture: duplicate roots moved", cwd=self.vendor)
+        git("tag", "dup-new", cwd=self.vendor)
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--vendor", str(self.vendor), "--old", "dup-base", "--new", "dup-new",
+             "--scan-subdirs", "pdfbox/src/main/java", "fontbox/src/main/java",
+             "--discover-bin", str(self.discover),
+             "--out", str(self.out)],
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate declaration id", result.stderr)
 
     def test_ledger_status_and_phase_join(self) -> None:
         result = self.drift()
