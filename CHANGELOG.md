@@ -7,12 +7,45 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-23
+
+### Added
+
+- `check_kind_vocabulary.py` gates each language's curated kind set against what
+  `chiasmus-discover` actually emits, reporting the dropped declaration kinds
+  with row counts. It reads `CURATED_KINDS` from `parity_inventory_lib.rb` so the
+  vocabulary keeps one source of truth, and excludes auxiliary rows
+  (`params`, `field`, `reference.call`, `definition.*`) that no curated set
+  should contain — without that split a Go check reports thousands of false
+  drops.
+- `migrate_crystal_refs.py` rewrites a ledger's `crystal_refs` from file paths to
+  symbol ids (`path::kind::qualified_name`) in a copy, staging every row as
+  qualified-in-file, bare-in-file, symbol-elsewhere (stale file ref), or
+  unresolved. It never guesses: unresolved rows are usually many-to-one collapse
+  and need an explicit decision.
+- `vendor_drift.py` reports a vendor bump per declaration instead of per path:
+  added / removed / moved, visibility, the phase inherited from the path triage,
+  and the ledger status — including rows that still claim `ported` for
+  declarations upstream deleted.
+
+### Changed
+
+- `check_port_inventory` accepts `path::kind::name` refs. The file half stays
+  authoritative (the `::` form passes `split(":")`), malformed symbol refs fail,
+  and setting `PORT_CRYSTAL_SOURCE=src` additionally verifies that discovery
+  emits the named Crystal symbol.
+- `cross-language-crystal-parity` documents the three `crystal_refs` forms, the
+  aggregate policy for many-to-one rows, the curated-kind gate, and a
+  per-declaration vendor drift step alongside the existing facts-level one.
+
 ### Fixed
 
 - Go parity manifests retain native `class`, `function`, and `interface`
   declarations alongside the historical regex kinds. Generated source parity
   manifests and port inventories declare their kind scope in a `# kinds=`
   comment so drift checks detect a new kind or a missing final row of a kind.
+- The native-Go fixture now expects `type::Counter` alongside the other native
+  declarations, matching the shipped discovery vocabulary.
 
 ## [1.11.0] - 2026-11-17
 

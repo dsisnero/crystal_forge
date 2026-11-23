@@ -53,6 +53,7 @@ class GoNativeKindsTest < Minitest::Test
         api.go::function::NewWidget
         api.go::interface::Runner
         api.go::method::Widget.Run
+        api.go::type::Counter
       ]
       MANIFESTS.each do |name, (generate, check)|
         manifest = File.join(root, name)

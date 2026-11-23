@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "pathname"
 require "set"
 require "tempfile"
 require_relative "parity_inventory_lib"
@@ -15,7 +16,8 @@ options = {
   language: ENV["PORT_LANGUAGE"] || "go",
   parser: ENV["PORT_PARSER"] || "auto",
   include_paths: ENV.fetch("PORT_SCOPE_INCLUDE", "").split(","),
-  exclude_patterns: ENV.fetch("PORT_SCOPE_EXCLUDE", "").split(",")
+  exclude_patterns: ENV.fetch("PORT_SCOPE_EXCLUDE", "").split(","),
+  crystal_source: ENV["PORT_CRYSTAL_SOURCE"]
 }
 
 OptionParser.new do |opts|
@@ -27,6 +29,7 @@ OptionParser.new do |opts|
   opts.on("--parser MODE", "Parser: auto|regex|tree-sitter") { |v| options[:parser] = v }
   opts.on("--include PATH", "Include path relative to source (repeatable)") { |v| options[:include_paths] << v }
   opts.on("--exclude GLOB", "Exclude glob relative to source (repeatable)") { |v| options[:exclude_patterns] << v }
+  opts.on("--crystal-source DIR", "Also verify symbol refs against Chiasmus discovery of this Crystal tree") { |v| options[:crystal_source] = v }
 end.parse!
 
 language = options[:language]
@@ -50,6 +53,23 @@ discovered_ids = ParityInventory.filter_items_for_manifest(
 manifest_ids = Set.new
 source_manifest_ids = Set.new
 errors = []
+
+crystal_ids = nil
+if options[:crystal_source]
+  root = Pathname.new(File.expand_path(options[:root_dir]))
+  source = Pathname.new(File.expand_path(options[:crystal_source], options[:root_dir]))
+  prefix = source.relative_path_from(root).to_s
+  prefix = "" if prefix == "."
+  _, crystal_items = ParityInventory.discover_items(
+    root_dir: options[:root_dir],
+    source_path: options[:crystal_source],
+    language: "crystal",
+    parser_mode: options[:parser],
+    include_paths: [],
+    exclude_patterns: []
+  )
+  crystal_ids = crystal_items.map { |item| prefix.empty? ? item.id : File.join(prefix, item.id) }.to_set
+end
 
 ParityInventory.load_manifest_rows(manifest, min_cols: 5).each do |cols|
   id, _kind, status, refs, = cols
@@ -77,9 +97,26 @@ ParityInventory.load_manifest_rows(manifest, min_cols: 5).each do |cols|
 
     path = ref.split(":").first
     next if path.nil? || path.empty?
-    next if File.exist?(File.join(options[:root_dir], path))
 
-    errors << "crystal_refs names a missing file for #{id}: #{path}"
+    unless File.exist?(File.join(options[:root_dir], path))
+      errors << "crystal_refs names a missing file for #{id}: #{path}"
+      next
+    end
+
+    # Symbol refs are `path::kind::name`. The file half is checked above, so the
+    # `::` form stays compatible with ledgers that only carry paths.
+    next unless ref.include?("::")
+
+    parts = ref.split("::")
+    if parts.size < 3 || parts.any? { |part| part.empty? }
+      errors << "crystal_refs has a malformed symbol ref for #{id}: #{ref}"
+      next
+    end
+
+    next if crystal_ids.nil?
+    next if crystal_ids.include?(ref)
+
+    errors << "crystal_refs names an unknown Crystal symbol for #{id}: #{ref}"
   end
 end
 
