@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,17 @@ coarse.go::func::Coarse\tfunc\tported\tsrc\tdirectory ref
 gone.go::func::MissingFile\tfunc\tported\tsrc/nope.cr\tstale path
 multi.go::func::Run\tfunc\tported\tsrc/clipboard.cr + src/tea.cr\tplus-separated refs
 sibling.go::func::Helper\tfunc\tported\tsrc/tea.cr + nested/helper.cr\tsibling shorthand
+"""
+
+
+FAKE_DISCOVER = """#!/usr/bin/env python3
+import pathlib, re, sys
+directory = pathlib.Path(sys.argv[sys.argv.index("--dir") + 1])
+for path in sorted(directory.rglob("*.cr")):
+    relative = path.relative_to(directory).as_posix()
+    text = path.read_text()
+    for name in re.findall(r"def\\s+([A-Za-z_][A-Za-z0-9_]*)", text):
+        print(f"{relative}::method::Demo.{name}\\tmethod\\tported\\t-\\tparser=fake")
 """
 
 
@@ -118,6 +130,33 @@ class MigrateCrystalRefsTest(unittest.TestCase):
         self.assertEqual(self.migrate().returncode, 0)
         column = [row.split("\t")[3] for row in self.out.read_text().splitlines()[1:]]
         self.assertFalse([ref for ref in column if "+" in ref or ";" in ref], column)
+
+    def test_port_dir_indexes_with_discovery_ids(self) -> None:
+        """--port-dir must emit `path::kind::qualified_name` exactly as discovery does."""
+        port_dir = self.root / "lib"
+        port_dir.mkdir()
+        (port_dir / "demo.cr").write_text("def run\nend\n", encoding="utf-8")
+        discover = self.root / "fake-discover"
+        discover.write_text(FAKE_DISCOVER, encoding="utf-8")
+        discover.chmod(discover.stat().st_mode | stat.S_IEXEC)
+
+        ledger = self.root / "discover-ledger.tsv"
+        ledger.write_text(
+            "# source_id\tkind\tstatus\tcrystal_refs\tnotes\n"
+            "upstream.ts::function::run\tfunction\tported\tlib/demo.cr\tneeds a symbol\n",
+            encoding="utf-8",
+        )
+        out = self.root / "discover-out.tsv"
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--ledger", str(ledger),
+             "--port-dir", str(port_dir), "--port-root", str(self.root),
+             "--discover-bin", str(discover), "--out", str(out)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        ref = out.read_text().splitlines()[1].split("\t")[3]
+        self.assertEqual(ref, "lib/demo.cr::method::Demo.run")
 
     def test_never_edits_the_input_ledger(self) -> None:
         before = self.ledger.read_text(encoding="utf-8")

@@ -7,6 +7,18 @@ are included — internal refactors, test updates, and CI changes are omitted.
 
 ## [Unreleased]
 
+## [1.12.5] - 2026-11-23
+
+### Fixed
+
+- `migrate_crystal_refs.py --port-dir` indexes the port with `chiasmus-discover`
+  (`path::kind::qualified_name`) instead of `chiasmus-facts`, so emitted refs are
+  exactly the ids `check_port_inventory --crystal-source` validates. The facts
+  vocabulary differs (`function` vs `method`, module-qualified names), which made
+  every migrated ref fail validation; `--port-facts` remains for callers that
+  already have facts.
+
+
 ## [1.12.4] - 2026-11-23
 
 ### Fixed

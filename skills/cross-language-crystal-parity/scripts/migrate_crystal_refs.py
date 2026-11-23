@@ -113,6 +113,40 @@ def load_port(facts_paths: list[Path], port_root: Path) -> dict[str, list[Symbol
     return by_file
 
 
+AUXILIARY_KINDS = {"params", "return_type", "field", "field_prop", "package", "variable"}
+
+
+def load_port_from_discover(discover_paths: list[tuple[Path, str]]) -> dict[str, list[Symbol]]:
+    """Index the port by `path::kind::qualified_name`, the ids the gate validates.
+
+    `chiasmus-facts` writes its own qualified names (and calls a top-level Crystal
+    `def` a `function`); discovery is the vocabulary the inventory check compares
+    against, so refs built from it round-trip by construction.
+    """
+    by_file: dict[str, list[Symbol]] = {}
+    for path, prefix in discover_paths:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line or line.startswith("#"):
+                continue
+            columns = line.split("\t")
+            if len(columns) < 2:
+                continue
+            kind = columns[1].strip()
+            if "." in kind or kind in AUXILIARY_KINDS:
+                continue
+            parts = columns[0].split("::", 2)
+            if len(parts) != 3:
+                continue
+            relative, id_kind, qname = parts
+            kind = id_kind or kind
+            file_name = f"{prefix}{relative}" if prefix else relative
+            by_file.setdefault(file_name, []).append(
+                Symbol(file=file_name, bare=qname.split(".")[-1], kind=kind,
+                       qname=qname, qsegments=segments(qname))
+            )
+    return by_file
+
+
 def read_ledger(path: Path) -> list[Row]:
     rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -286,7 +320,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--port-dir", action="append", default=[],
                         help="port source directory to scan when --port-facts is omitted (repeatable)")
     parser.add_argument("--port-language", default="crystal")
-    parser.add_argument("--facts-bin", help="chiasmus-facts binary (default: resolved toolchain)")
+    parser.add_argument("--discover-bin", help="chiasmus-discover binary (default: resolved toolchain)")
+    parser.add_argument("--facts-bin", help="chiasmus-facts binary used with --port-facts")
     parser.add_argument("--port-root", default=".")
     parser.add_argument("--out", required=True)
     parser.add_argument("--samples", type=int, default=8, help="stage-4 samples to print")
@@ -298,28 +333,37 @@ def main(argv: list[str]) -> int:
 
     facts_paths = [Path(path).expanduser() for path in args.port_facts]
     temporary = None
-    if not facts_paths:
+    port_by_file: dict[str, list[Symbol]]
+
+    if facts_paths:
+        port_by_file = load_port(facts_paths, port_root)
+    else:
         if not args.port_dir:
             parser.error("provide --port-facts or at least one --port-dir")
         try:
-            facts_bin = binary("chiasmus-facts", override=args.facts_bin)
+            discover_bin = binary("chiasmus-discover", ["discover.tree-sitter"], args.discover_bin)
         except ToolchainError as error:
             print(str(error), file=sys.stderr)
             return 2
         temporary = tempfile.TemporaryDirectory(prefix="crystal-refs-")
+        discover_paths: list[tuple[Path, str]] = []
         for index, directory in enumerate(args.port_dir):
-            target = Path(temporary.name) / f"facts-{index}.pl"
+            target = Path(temporary.name) / f"discover-{index}.tsv"
             result = subprocess.run(
-                [facts_bin, "--language", args.port_language, "--dir", directory],
+                [discover_bin, "--language", args.port_language, "--dir", directory],
                 capture_output=True, text=True,
             )
             if result.returncode != 0:
-                print(f"chiasmus-facts failed for {directory}: {result.stderr[:400]}", file=sys.stderr)
+                print(f"chiasmus-discover failed for {directory}: {result.stderr[:400]}", file=sys.stderr)
                 return 2
             target.write_text(result.stdout, encoding="utf-8")
-            facts_paths.append(target)
-
-    port_by_file = load_port(facts_paths, port_root)
+            absolute = Path(directory).expanduser().resolve()
+            try:
+                prefix = absolute.relative_to(port_root).as_posix()
+            except ValueError:
+                prefix = absolute.name
+            discover_paths.append((target, "" if prefix == "." else f"{prefix}/"))
+        port_by_file = load_port_from_discover(discover_paths)
     ledger_path = Path(args.ledger).expanduser()
 
     raw_rows = read_ledger(ledger_path)
